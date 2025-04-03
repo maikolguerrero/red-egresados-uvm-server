@@ -1,0 +1,40 @@
+# Archivos de entorno
+.env
+
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Archivos de compilación
+dist/
+build/
+*.tmp
+
+# Archivos de prueba y cobertura
+coverage/
+*.junit
+*.lcov
+
+# Archivos de desarrollo
+*.csv   # Excluye archivos CSV de datos de prueba (opcional, si no quieres subirlos)
+/data/  # Excluye la carpeta con datos de prueba
