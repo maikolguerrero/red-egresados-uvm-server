@@ -36,5 +36,5 @@ coverage/
 *.lcov
 
 # Archivos de desarrollo
-*.csv   # Excluye archivos CSV de datos de prueba (opcional, si no quieres subirlos)
-/data/  # Excluye la carpeta con datos de prueba
+*.csv
+data/

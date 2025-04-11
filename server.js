@@ -13,14 +13,15 @@ const app = express();
 // Middlewares
 app.use(cors()); // Permitir solicitudes desde el frontend
 app.use(express.json()); // Parsear JSON en las solicitudes
-app.use(notFoundHandler); // Maneja rutas no encontradas
-app.use(globalErrorHandler); // Maneja errores
 
 // Conectar a MongoDB
 connectDB();
 
+app.use(notFoundHandler); // Maneja rutas no encontradas
+app.use(globalErrorHandler); // Maneja errores
+
 // Iniciar el servidor
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });

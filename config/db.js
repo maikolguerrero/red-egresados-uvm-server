@@ -1,8 +1,20 @@
 import mongoose from 'mongoose';
 
-const connectDB = async () => {
+const connectDB = async (customOptions = {}) => {
+
   // =============================================
-  // 1. Validaciones iniciales (fase temprana)
+  // 1. Configuración base
+  // =============================================
+  const defaultOptions = {
+    serverSelectionTimeoutMS: 3000,
+    socketTimeoutMS: 30000,
+    maxPoolSize: 5
+  };
+
+  const options = { ...defaultOptions, ...customOptions };
+
+  // =============================================
+  // 2. Validaciones iniciales (fase temprana)
   // =============================================
   const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -17,7 +29,7 @@ const connectDB = async () => {
   }
 
   // =============================================
-  // 2. Configuración de eventos (para monitoreo)
+  // 3. Configuración de eventos (para monitoreo)
   // =============================================
   mongoose.connection.on('connected', () => {
     console.log(`✅ [Conexión] Conectado a MongoDB (Host: ${mongoose.connection.host})`);
@@ -32,7 +44,7 @@ const connectDB = async () => {
   });
 
   // =============================================
-  // 3. Manejo de cierre elegante
+  // 4. Manejo de cierre elegante
   // =============================================
   const handleShutdown = async (signal) => {
     console.log(`\n🛑 [Sistema] Recibida señal ${signal}. Cerrando conexión...`);
@@ -45,16 +57,12 @@ const connectDB = async () => {
   process.on('SIGTERM', () => handleShutdown('SIGTERM')); // Kill command
 
   // =============================================
-  // 4. Conexión principal
+  // 5. Conexión principal
   // =============================================
   try {
     console.log('🔌 [Sistema] Intentando conectar a MongoDB...');
 
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 3000,  // 3s
-      socketTimeoutMS: 30000,         // 30s
-      maxPoolSize: 5
-    });
+    await mongoose.connect(MONGODB_URI, options);
 
     // Verificación opcional (solo en producción)
     if (process.env.NODE_ENV === 'production') {
