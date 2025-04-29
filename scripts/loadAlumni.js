@@ -4,27 +4,33 @@ import connectDB from '../config/db.js';
 import Alumni from '../models/Alumni.js';
 import fs from 'fs';
 import { createInterface } from 'readline';
+import logger from '../config/logger.js';
 
 dotenv.config();
 
-await connectDB({
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Configurar logger específico para este script
+const scriptLogger = logger.child({ module: 'loadAlumniScript' });
+
+// Configuración de conexión mejorada
+const connectionOptions = {
     serverSelectionTimeoutMS: 60000,
     socketTimeoutMS: 120000,
     maxPoolSize: 100
-});
+};
 
-const CSV_PATH = process.env.CSV_PATH;
-const BATCH_SIZE = 500;
-const REPORT_INTERVAL = 1000;
-
-// Estadísticas detalladas
+// Estadísticas detalladas con más métricas
 const stats = {
+    startTime: new Date(),
     totalLines: 0,
     processed: 0,
     inserted: 0,
     validationErrors: 0,
     duplicates: 0,
     otherErrors: 0,
+    batchesProcessed: 0,
+    individualRetries: 0,
     errorDetails: []
 };
 
@@ -42,80 +48,119 @@ async function validateRecord(record) {
     }
 }
 
-// Procesamiento del archivo
-console.time('⏱️  Tiempo total');
-console.log('🚀 Procesando CSV con stream...');
-
-const fileStream = fs.createReadStream(CSV_PATH);
-const rl = createInterface({
-    input: fileStream,
-    crlfDelay: Infinity
-});
-
-let batch = [];
-let firstLine = true;
-
-for await (const line of rl) {
-    stats.totalLines++;
-
-    // Saltar encabezado
-    if (firstLine) {
-        firstLine = false;
-        continue;
-    }
-
+// Función principal
+async function loadAlumniData() {
     try {
-        const data = parseCSVLine(line);
-        const validation = await validateRecord(data);
-
-        if (!validation.valid) {
-            stats.validationErrors++;
-            stats.errorDetails.push({
-                line: stats.totalLines,
-                error: 'Validación fallida',
-                details: Object.values(validation.errors).map(e => e.message),
-                content: line.substring(0, 100)
-            });
-            continue;
-        }
-
-        batch.push(data);
-        stats.processed++;
-
-        // Procesar lote completo
-        if (batch.length >= BATCH_SIZE) {
-            await processBatch(batch);
-            batch = [];
-        }
-
-        // Reporte periódico
-        if (stats.processed % REPORT_INTERVAL === 0) {
-            console.log(`📊 Procesados: ${stats.processed} | Insertados: ${stats.inserted} | Errores: ${stats.validationErrors + stats.otherErrors}`);
-        }
-    } catch (error) {
-        stats.otherErrors++;
-        stats.errorDetails.push({
-            line: stats.totalLines,
-            error: error.message,
-            content: line.substring(0, 100)
+        scriptLogger.info('Iniciando carga de datos de egresados', {
+            csvPath: process.env.CSV_PATH,
+            batchSize: process.env.BATCH_SIZE || 500
         });
+
+        await connectDB(connectionOptions);
+        scriptLogger.info('Conexión a MongoDB establecida');
+
+        const CSV_PATH = process.env.CSV_PATH;
+        const BATCH_SIZE = parseInt(process.env.BATCH_SIZE) || 500;
+        const REPORT_INTERVAL = parseInt(process.env.REPORT_INTERVAL) || 1000;
+
+        if (!CSV_PATH) {
+            throw new Error('La variable CSV_PATH no está definida en .env');
+        }
+
+        scriptLogger.info('Procesando archivo CSV', { filePath: CSV_PATH });
+
+        const fileStream = fs.createReadStream(CSV_PATH);
+        const rl = createInterface({
+            input: fileStream,
+            crlfDelay: Infinity
+        });
+
+        let batch = [];
+        let firstLine = true;
+
+        scriptLogger.debug('Iniciando lectura del archivo');
+        for await (const line of rl) {
+            stats.totalLines++;
+
+            // Saltar encabezado
+            if (firstLine) {
+                firstLine = false;
+                scriptLogger.debug('Encabezado del CSV omitido');
+                continue;
+            }
+
+            try {
+                const data = parseCSVLine(line);
+                const validation = await validateRecord(data);
+
+                if (!validation.valid) {
+                    stats.validationErrors++;
+                    stats.errorDetails.push({
+                        line: stats.totalLines,
+                        error: 'Validación fallida',
+                        details: Object.values(validation.errors).map(e => e.message),
+                        content: line.substring(0, 100) + '...'
+                    });
+                    continue;
+                }
+
+                batch.push(data);
+                stats.processed++;
+
+                // Procesar lote completo
+                if (batch.length >= BATCH_SIZE) {
+                    await processBatch(batch, BATCH_SIZE);
+                    batch = [];
+                    stats.batchesProcessed++;
+                }
+
+                // Reporte periódico
+                if (stats.processed % REPORT_INTERVAL === 0) {
+                    scriptLogger.info('Progreso de carga', {
+                        processed: stats.processed,
+                        inserted: stats.inserted,
+                        errors: stats.validationErrors + stats.otherErrors,
+                        duplicates: stats.duplicates,
+                        throughput: `${Math.round(stats.processed / ((new Date() - stats.startTime) / 1000))} registros/segundo`
+                    });
+                }
+            } catch (error) {
+                stats.otherErrors++;
+                stats.errorDetails.push({
+                    line: stats.totalLines,
+                    error: error.message,
+                    content: line.substring(0, 100) + '...'
+                });
+            }
+        }
+
+        // Procesar último lote
+        if (batch.length > 0) {
+            await processBatch(batch, batch.length);
+            stats.batchesProcessed++;
+        }
+
+        // Resultados finales
+        await logFinalStats();
+        await mongoose.disconnect();
+        scriptLogger.info('Proceso completado exitosamente');
+
+    } catch (error) {
+        scriptLogger.error('Error crítico en el proceso de carga', {
+            error: error.message,
+            stack: !isProduction ? error.stack : undefined,
+            stats: stats,
+            severity: 'critical'
+        });
+        process.exit(1);
     }
 }
 
-// Procesar último lote
-if (batch.length > 0) {
-    await processBatch(batch);
-}
-
-// Resultados finales
-console.timeEnd('⏱️  Tiempo total');
-printFinalStats();
-await mongoose.disconnect();
-
-// Función para procesar lotes
-async function processBatch(batch) {
+// Función para procesar lotes con logging detallado
+async function processBatch(batch, batchSize) {
     try {
-        // Intento de inserción masiva
+        scriptLogger.debug(`Procesando lote de ${batchSize} registros`);
+        
         const result = await Alumni.insertMany(batch, {
             ordered: false,
             rawResult: true
@@ -125,6 +170,11 @@ async function processBatch(batch) {
 
         // Manejar errores de inserción
         if (result.writeErrors) {
+            scriptLogger.warn('Errores en el procesamiento por lotes', {
+                totalErrors: result.writeErrors.length,
+                batchSize: batchSize
+            });
+
             for (const error of result.writeErrors) {
                 if (error.code === 11000) {
                     stats.duplicates++;
@@ -133,22 +183,30 @@ async function processBatch(batch) {
                 }
 
                 stats.errorDetails.push({
-                    line: 'No aplica (error durante procesamiento por lotes)',
+                    line: 'Batch processing',
                     error: error.errmsg,
-                    content: JSON.stringify(batch[error.index])
+                    errorCode: error.code,
+                    content: JSON.stringify(batch[error.index]).substring(0, 100) + '...'
                 });
             }
         }
     } catch (error) {
-        console.error('❌ Error crítico al procesar el lote:', error.message);
-        // Si falla el lote (batch), intentar uno por uno
+        scriptLogger.warn('Fallo en el procesamiento por lotes, intentando uno por uno', {
+            error: error.message,
+            batchSize: batchSize
+        });
+        stats.individualRetries += batch.length;
         await insertOneByOne(batch);
     }
 }
 
 // Función para insertar registros individualmente
 async function insertOneByOne(records) {
-    for (const record of records) {
+    scriptLogger.debug('Iniciando inserción individual de registros', {
+        recordsToProcess: records.length
+    });
+
+    for (const [index, record] of records.entries()) {
         try {
             // Verificar si ya existe
             const exists = await Alumni.findOne({
@@ -167,15 +225,23 @@ async function insertOneByOne(records) {
             // Insertar nuevo registro
             await Alumni.create(record);
             stats.inserted++;
+
+            if ((index + 1) % 100 === 0) {
+                scriptLogger.debug('Progreso inserción individual', {
+                    processed: index + 1,
+                    total: records.length
+                });
+            }
         } catch (error) {
             if (error.code === 11000) {
                 stats.duplicates++;
             } else {
                 stats.otherErrors++;
                 stats.errorDetails.push({
-                    line: 'No aplica (error durante inserción individual)',
+                    line: 'Individual processing',
                     error: error.message,
-                    content: JSON.stringify(record)
+                    errorCode: error.code,
+                    content: JSON.stringify(record).substring(0, 100) + '...'
                 });
             }
         }
@@ -183,29 +249,46 @@ async function insertOneByOne(records) {
 }
 
 // Función para mostrar estadísticas finales
-function printFinalStats() {
-    console.log('\n🔍 ESTADÍSTICAS DETALLADAS:');
-    console.log(`📄 Total líneas en CSV: ${stats.totalLines}`);
-    console.log(`🔄 Registros procesados: ${stats.processed}`);
-    console.log(`🟢 Insertados exitosamente: ${stats.inserted}`);
-    console.log(`🔴 Fallidos: ${stats.validationErrors + stats.duplicates + stats.otherErrors}`);
-    console.log(`  ├─ Errores validación: ${stats.validationErrors}`);
-    console.log(`  ├─ Duplicados: ${stats.duplicates}`);
-    console.log(`  └─ Otros errores: ${stats.otherErrors}`);
-    console.log(`\n💾 Total en base de datos: ${stats.inserted}`);
+async function logFinalStats() {
+    const duration = (new Date() - stats.startTime) / 1000;
+    const recordsPerSecond = (stats.processed / duration).toFixed(2);
 
-    // Mostrar ejemplos de errores
+    scriptLogger.info('ESTADÍSTICAS FINALES DE CARGA', {
+        duration: `${duration.toFixed(2)} segundos`,
+        throughput: `${recordsPerSecond} registros/segundo`,
+        totalLines: stats.totalLines,
+        processed: stats.processed,
+        inserted: stats.inserted,
+        validationErrors: stats.validationErrors,
+        duplicates: stats.duplicates,
+        otherErrors: stats.otherErrors,
+        batchesProcessed: stats.batchesProcessed,
+        individualRetries: stats.individualRetries
+    });
+
+    // Log de errores representativos
     if (stats.errorDetails.length > 0) {
-        console.log('\n📝 Primeros 5 errores:');
-        stats.errorDetails.slice(0, 5).forEach(err => {
-            console.log(`Línea ${err.line}: ${err.error}`);
-            if (err.details) console.log(`   Detalles: ${err.details.join('; ')}`);
-            console.log(`   Contenido: ${err.content}\n`);
+        const sampleErrors = stats.errorDetails.slice(0, 5);
+        scriptLogger.warn('Muestra de errores encontrados', {
+            totalErrors: stats.errorDetails.length,
+            sampleErrors: sampleErrors
+        });
+    }
+
+    // Verificar conteo final en base de datos
+    try {
+        const totalInDB = await Alumni.countDocuments();
+        scriptLogger.info('Conteo final en base de datos', {
+            totalRecords: totalInDB
+        });
+    } catch (error) {
+        scriptLogger.error('Error al obtener conteo final', {
+            error: error.message
         });
     }
 }
 
-// Función para parsear líneas CSV
+// Funciones auxiliares (parseCSVLine y parseDate se mantienen igual)
 function parseCSVLine(line) {
     const values = line.split(',').map(v => v.trim());
 
@@ -227,10 +310,11 @@ function parseCSVLine(line) {
     };
 }
 
-// Función para parsear fechas con manejo de errores
 function parseDate(dateStr) {
     if (!dateStr) return null;
-
     const date = new Date(dateStr);
     return isNaN(date.getTime()) ? null : date;
 }
+
+// Ejecutar el script
+loadAlumniData();
