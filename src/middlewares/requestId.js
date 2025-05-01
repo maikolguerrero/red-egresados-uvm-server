@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import logger from '../config/logger.js';
 
+// Middleware para generar ID de solicitud
 export const requestIdMiddleware = (req, res, next) => {
     const requestId = randomUUID();
     req.requestId = requestId;
