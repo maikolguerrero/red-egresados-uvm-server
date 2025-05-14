@@ -1,8 +1,53 @@
+/**
+ * @fileoverview Módulo de conexión a MongoDB con manejo avanzado de errores
+ * @module config/db
+ * @requires mongoose - ODM para MongoDB
+ * @requires dotenv - Manejo de variables de entorno
+ * @requires ./logger - Logger personalizado
+ * 
+ * @description  
+ * Configuración robusta de conexión a MongoDB con:
+ * - Validación de URI y variables de entorno  
+ * - Manejo de eventos (conexión/desconexión/errores)  
+ * - Cierre elegante en señales SIGINT/SIGTERM  
+ * - Verificación de salud en producción  
+ * - Logging detallado para troubleshooting
+ */
+
+/**
+ * @typedef {Object} MongoOptions
+ * @property {number} [serverSelectionTimeoutMS=3000] - Tiempo de espera para selección de servidor (ms)
+ * @property {number} [socketTimeoutMS=30000] - Tiempo de espera de sockets (ms)
+ * @property {number} [maxPoolSize=5] - Tamaño máximo del pool de conexiones
+ */
+
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import logger from './logger.js';
 
 dotenv.config();
+
+/**
+ * Establece conexión con MongoDB y configura manejadores de eventos
+ * @function connectDB
+ * @async
+ * @param {MongoOptions} [customOptions={}] - Opciones personalizadas para la conexión
+ * @returns {Promise<void>} No retorna valor, pero establece la conexión
+ * @throws {Error} 
+ * - Si falta MONGODB_URI en .env
+ * - Si la URI tiene formato inválido
+ * - Si falla la conexión inicial
+ * 
+ * @example
+ * // Conexión básica
+ * await connectDB();
+ * 
+ * // Conexión con opciones personalizadas
+ * await connectDB({
+ *   serverSelectionTimeoutMS: 5000,
+ *   maxPoolSize: 10
+ * });
+ */
 
 const connectDB = async (customOptions = {}) => {
 

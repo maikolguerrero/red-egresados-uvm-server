@@ -1,6 +1,46 @@
-import { AppError } from './error/index.js';
+import AppError from './AppError.js';
 
-// Middleware para validación de datos
+/**
+ * @fileoverview Middlewares para validación estructurada de datos
+ * @module middlewares/validate.middleware
+ * @requires ./AppError - Clase de errores personalizados
+ * 
+ * @description  
+ * Sistema de validación con:
+ * - Soporte para body, query params y URL params  
+ * - Normalización de datos validados  
+ * - Mensajes de error detallados  
+ * - Integración con Joi/Yup u otros validadores
+ */
+
+/**
+ * Middleware factory para validación de datos
+ * @function validate
+ * @param {Object} schema - Esquema de validación (Joi/Yup/etc)
+ * @param {string} [property='body'] - Propiedad del request a validar
+ * @returns {Function} Middleware de validación
+ * 
+ * @description  
+ * Flujo de validación:
+ * 1. Extrae datos del request según propiedad  
+ * 2. Valida contra el esquema proporcionado  
+ * 3. Asigna datos validados a:  
+ *    - `req.validatedQuery` (para query params)  
+ *    - `req.validatedParams` (para URL params)  
+ *    - `req[property]` (para otros casos)  
+ * 4. Maneja errores con formato estandarizado
+ * 
+ * @throws {AppError} 
+ * - 422 con código VALIDATION_ERROR y array de errores
+ * 
+ * @example
+ * // Validación de body:
+ * router.post('/', validate(bodySchema), handler);
+ * 
+ * @example
+ * // Validación de query params:
+ * router.get('/', validate(querySchema, 'query'), handler);
+ */
 export const validate = (schema, property = 'body') => {
     return async (req, res, next) => {
         try {
@@ -56,13 +96,38 @@ export const validate = (schema, property = 'body') => {
     };
 };
 
-// Middleware para validar query strings
+/**
+ * Middleware especializado para validación de query strings
+ * @function validateQuery
+ * @param {Object} schema - Esquema de validación
+ * @returns {Function} Middleware de validación
+ * 
+ * @description  
+ * Versión especializada de validate() para query params:  
+ * - Asigna datos validados a `req.validatedQuery`  
+ * - Mantiene los query params originales intactos  
+ * 
+ * @example
+ * router.get('/search', validateQuery(searchSchema), searchHandler);
+ */
 export const validateQuery = (schema) => {
     return validate(schema, 'query');
 };
 
-// Middleware para URL params
+/**
+ * Middleware especializado para validación de URL params
+ * @function validateParams
+ * @param {Object} schema - Esquema de validación
+ * @returns {Function} Middleware de validación
+ * 
+ * @description  
+ * Versión especializada de validate() para URL params:  
+ * - Asigna datos validados a `req.validatedParams`  
+ * - Normaliza tipos de datos (ej: string -> number)  
+ * 
+ * @example
+ * router.get('/users/:id', validateParams(idSchema), userHandler);
+ */
 export const validateParams = (schema) => {
     return validate(schema, 'params');
 };
-

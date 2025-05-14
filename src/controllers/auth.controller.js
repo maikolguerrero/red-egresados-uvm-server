@@ -1,26 +1,62 @@
+/**
+ * @fileoverview Controlador para operaciones de autenticación (login, registro, tokens)
+ * @module controllers/auth.controller
+ * @requires bcrypt
+ * @requires jsonwebtoken
+ * @requires ../models/Alumni
+ * @requires ../models/User
+ * @requires ../models/RefreshToken
+ * @requires ../models/TokenBlacklist
+ * @requires AppError
+ */
+
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Alumni from '../models/Alumni.js';
 import User from '../models/User.js';
 import RefreshToken from '../models/RefreshToken.js';
 import TokenBlacklist from '../models/TokenBlacklist.js';
-import { AppError } from '../middlewares/error/index.js';
+import AppError from '../middlewares/AppError.js';
 import dotenv from 'dotenv';
 
 // Cargar variables de entorno
 dotenv.config();
 
 export default class AuthController {
+
+    /**
+     * @description Crea una instancia del controlador de autenticación
+     * @param {EmailService} emailService - Servicio de envío de emails
+     * @example
+     * const emailService = new EmailService();
+     * const authController = new AuthController(emailService);
+     */
     constructor(emailService) {
         this.emailService = emailService;
     }
 
     /**
-     * Método para generar tokens JWT
+     * @private
+     * @method _generateToken
+     * @description Genera un par de tokens JWT (access y refresh)
+     * @param {string} userId - ID del usuario
+     * @param {string} role - Rol del usuario
+     * @returns {Object} Objeto con accessToken y refreshToken
+     * @throws {Error} Si faltan userId o role
      */
     _generateToken(userId, role) {
         if (!userId || !role) {
-            throw new Error('Missing required fields for token generation');
+            throw new AppError(
+                'Faltan campos obligatorios para generar el token',
+                404,
+                'TOKEN_GENERATION_ERROR',
+                {
+                    action: 'token_generation',
+                    userId,
+                    role,
+                    context: 'security'
+                }
+            );
         }
 
         const accessToken = jwt.sign(
@@ -39,7 +75,17 @@ export default class AuthController {
     }
 
     /**
-     * Registro de egresados (con validación contra datos precargados)
+     * @method
+     * @async
+     * @description Registra un nuevo egresado validando contra datos precargados
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si no se encuentra el egresado en registros precargados
+     *  - 409 si el egresado ya está registrado o el username existe
+     *  - 500 si falla el envío del email de verificación
      */
     registerAlumni = async (req, res, next) => {
         try {
@@ -176,8 +222,19 @@ export default class AuthController {
     }
 
     /**
-    * Reenvío de correo de verificación
-    */
+     * @method
+     * @async
+     * @description Reenvía el correo de verificación a usuarios no verificados
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.email - Email a verificar
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si el usuario no existe
+     *  - 400 si la cuenta ya está verificada
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
+     */
     resendVerificationEmail = async (req, res, next) => {
         try {
             const { email } = req.body;
@@ -281,8 +338,17 @@ export default class AuthController {
     }
 
     /**
-    * Verificación de email
-    */
+     * @method
+     * @async
+     * @description Verifica una cuenta de usuario mediante token
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.validatedQuery.token - Token de verificación
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     */
     verifyEmail = async (req, res, next) => {
         try {
             const { token } = req.validatedQuery;
@@ -340,7 +406,16 @@ export default class AuthController {
     }
 
     /**
-     * Registro de administradores (sin vinculación a Alumni)
+     * @method
+     * @async
+     * @description Registra un nuevo administrador (requiere rol admin)
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 403 si el solicitante no es administrador
+     *  - 409 si el username o email ya existen
      */
     registerAdmin = async (req, res, next) => {
         try {
@@ -423,7 +498,21 @@ export default class AuthController {
     }
 
     /**
-     * Login
+     * @method
+     * @async
+     * @description Autentica un usuario y genera tokens JWT
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.emailOrUsername - Email o nombre de usuario
+     * @param {string} req.body.password - Contraseña
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Cookies HTTP-only con tokens JWT
+     *  - JSON con datos básicos del usuario
+     * @throws {AppError} Con errores específicos:
+     *  - 401 si las credenciales son inválidas
+     *  - 403 si la cuenta no está verificada/inactiva
+     *  - 500 si hay error al generar tokens
      */
     login = async (req, res, next) => {
         try {
@@ -567,16 +656,30 @@ export default class AuthController {
         }
     }
 
-    // Renovar tokens
+    /**
+     * @method
+     * @async
+     * @description Renueva los tokens JWT usando un refresh token válido
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} [req.cookies.refreshToken] - Token de refresco en cookie
+     * @param {string} [req.body.refreshToken] - Token de refresco en body
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Nuevas cookies HTTP-only con tokens actualizados
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si no se proporciona refresh token
+     *  - 401 si el token es inválido o expiró
+     *  - 500 si hay error al renovar tokens
+     */
     refreshToken = async (req, res, next) => {
         try {
-            const refreshTokenCookie = req.cookies.refreshToken || req.body.refreshToken;
+            const refreshTokenCookie = req.cookies?.refreshToken || req.body?.refreshToken || null;
 
             if (!refreshTokenCookie) {
                 throw new AppError('Refresh token requerido', 401, 'REFRESH_TOKEN_REQUIRED', {
                     action: 'login_failed',
                     context: 'security',
-                    userId: storedToken?.user?._id,
                     reason: 'refresh_token_generation_failed',
                     ip: req.ip,
                     userAgent: req.headers['user-agent']
@@ -594,7 +697,6 @@ export default class AuthController {
                 throw new AppError('Refresh token inválido o expirado', 401, 'INVALID_REFRESH_TOKEN', {
                     action: 'login_failed',
                     context: 'security',
-                    userId: storedToken?.user?._id,
                     reason: 'refresh_token_generation_failed',
                     ip: req.ip,
                     userAgent: req.headers['user-agent']
@@ -634,7 +736,6 @@ export default class AuthController {
                     {
                         action: 'login_failed',
                         context: 'security',
-                        userId: storedToken?.user?._id,
                         reason: 'refresh_token_generation_failed',
                         ip: req.ip,
                         userAgent: req.headers['user-agent']
@@ -650,7 +751,6 @@ export default class AuthController {
                     {
                         action: 'login_failed',
                         context: 'security',
-                        userId: storedToken?.user?._id,
                         reason: 'refresh_token_generation_failed',
                         ip: req.ip,
                         userAgent: req.headers['user-agent']
@@ -690,7 +790,15 @@ export default class AuthController {
     }
 
     /**
-     * Logout
+     * @method
+     * @async
+     * @description Invalida los tokens de sesión y limpia las cookies
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Respuesta de éxito después de invalidar tokens
+     * @throws {AppError} Si ocurre un error al invalidar los tokens
      */
     logout = async (req, res, next) => {
         try {
@@ -767,7 +875,16 @@ export default class AuthController {
     }
 
     /**
-     * Solicitud de restablecimiento de contraseña
+     * @method
+     * @async
+     * @description Maneja la solicitud de restablecimiento de contraseña
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.emailOrUsername - Email o nombre de usuario
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, siempre envía éxito (por seguridad)
+     * @throws {AppError} Con errores específicos:
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
      */
     forgotPassword = async (req, res, next) => {
         try {
@@ -870,7 +987,18 @@ export default class AuthController {
     }
 
     /**
-     * Procesar restablecimiento de contraseña
+     * @method
+     * @async
+     * @description Restablece la contraseña usando un token válido
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.token - Token de restablecimiento
+     * @param {string} req.body.newPassword - Nueva contraseña
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     *  - 400 si la nueva contraseña no cumple los requisitos
      */
     resetPassword = async (req, res, next) => {
         try {

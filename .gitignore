@@ -38,3 +38,4 @@ coverage/
 # Archivos de desarrollo
 *.csv
 data/
+src/docs/jsdoc/

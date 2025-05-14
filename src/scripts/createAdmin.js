@@ -1,3 +1,32 @@
+/**
+ * @fileoverview Script de inicialización para crear el primer usuario administrador
+ * @module scripts/createAdmin
+ * @requires mongoose - Para operaciones con MongoDB
+ * @requires bcrypt - Para hashing de contraseñas
+ * @requires dotenv - Manejo de variables de entorno
+ * @requires ../models/User - Modelo de usuario
+ * @requires ../config/db - Conexión a la base de datos
+ * @requires ../config/logger - Logger personalizado
+ * 
+ * @description  
+ * Script que:
+ * - Crea el primer usuario administrador del sistema  
+ * - Valida variables de entorno requeridas  
+ * - Verifica unicidad de credenciales  
+ * - Hashea la contraseña de forma segura  
+ * - Maneja errores con logging detallado
+ * 
+ * @example
+ * // Ejecución desde línea de comandos:
+ * node src/scripts/createAdmin.js
+ * 
+ * // Requiere variables de entorno en .env:
+ * FIRST_ADMIN_EMAIL
+ * FIRST_ADMIN_USERNAME
+ * FIRST_ADMIN_PASSWORD
+ * FIRST_ADMIN_FULLNAME
+ */
+
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
@@ -7,16 +36,35 @@ import logger from '../config/logger.js';
 
 dotenv.config();
 
+/**
+ * @constant {boolean} isProduction
+ * @description Indica si el script se ejecuta en entorno de producción
+ */
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Configuración de conexión
+/**
+ * @constant {object} connectionOptions
+ * @description Opciones de conexión mejoradas para MongoDB
+ * @property {number} serverSelectionTimeoutMS - Tiempo de espera para selección de servidor (5s)
+ * @property {number} socketTimeoutMS - Tiempo de espera de socket (10s)
+ * @property {number} maxPoolSize - Tamaño máximo del pool de conexiones (1)
+ */
 const connectionOptions = {
     serverSelectionTimeoutMS: 5000,  // 5 segundos (suficiente para una conexión local)
     socketTimeoutMS: 10000,          // 10 segundos (tiempo para la operación)
     maxPoolSize: 1                   // Solo necesitamos una conexión
 };
 
-// Función para hashear la contraseña
+/**
+ * Hashea la contraseña del administrador usando bcrypt
+ * @async
+ * @function getHashedPassword
+ * @returns {Promise<string>} Contraseña hasheada
+ * @throws {Error} Si falla el hashing
+ * 
+ * @example
+ * const hashedPass = await getHashedPassword();
+ */
 async function getHashedPassword() {
     try {
         const hashedPassword = await bcrypt.hash(process.env.FIRST_ADMIN_PASSWORD, 10);
@@ -32,7 +80,19 @@ async function getHashedPassword() {
     }
 }
 
-// Función para verificar unicidad de credenciales
+/**
+ * Verifica que email y username sean únicos en la base de datos
+ * @async
+ * @function checkUniqueCredentials
+ * @param {string} email - Email a verificar
+ * @param {string} username - Nombre de usuario a verificar
+ * @returns {Promise<Object>} Objeto con resultados
+ * @property {boolean} isUnique - Indica si las credenciales son únicas
+ * @property {string} [field] - Campo duplicado (si aplica)
+ * 
+ * @example
+ * const { isUnique } = await checkUniqueCredentials('admin@uvm.edu.ve', 'admin');
+ */
 async function checkUniqueCredentials(email, username) {
     const scriptLogger = logger.child({ module: 'createAdminScript' });
 
@@ -73,7 +133,28 @@ async function checkUniqueCredentials(email, username) {
     }
 }
 
-// Función principal para crear el administrador
+/**
+ * Función principal que orquesta la creación del administrador
+ * @async
+ * @function createFirstAdmin
+ * @description  
+ * Flujo de ejecución:
+ * 1. Conecta a la base de datos  
+ * 2. Valida variables de entorno requeridas  
+ * 3. Verifica unicidad de credenciales  
+ * 4. Hashea la contraseña  
+ * 5. Crea el usuario administrador  
+ * 6. Desconecta de la base de datos
+ * 
+ * @throws {Error} 
+ * - Si faltan variables de entorno  
+ * - Si las credenciales ya existen  
+ * - Si falla la conexión a la base de datos
+ * 
+ * @example
+ * // Ejecución directa (desde línea de comandos):
+ * node src/scripts/createAdmin.js
+ */
 async function createFirstAdmin() {
     // Crear un logger específico para este script
     const scriptLogger = logger.child({ module: 'createAdminScript' });
@@ -116,8 +197,6 @@ async function createFirstAdmin() {
             throw new Error(`El ${uniquenessCheck.field} ya está registrado`);
         }
 
-        // const hashedPassword = await bcrypt.hash(process.env.FIRST_ADMIN_PASSWORD, 10);
-
         // Datos del admin desde variables de entorno
         const adminData = {
             fullName: process.env.FIRST_ADMIN_FULLNAME,
@@ -150,7 +229,6 @@ async function createFirstAdmin() {
                 email: adminData.email,
                 username: adminData.username,
                 context: 'setup'
-                // console.log('✅ Administrador principal creado exitosamente:', adminData.email);
             });
         }
 

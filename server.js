@@ -1,3 +1,19 @@
+/**
+ * @fileoverview Punto de entrada principal del servidor
+ * @module server
+ * @requires dotenv
+ * @requires ./src/app
+ * @requires ./src/config/db
+ * @requires ./src/config/logger
+ * 
+ * @description
+ * Este archivo maneja:
+ * - Inicialización del servidor Express
+ * - Conexión a la base de datos con reintentos
+ * - Manejo de errores y señales del sistema
+ * - Configuración de variables de entorno
+ */
+
 import dotenv from 'dotenv';
 import app from './src/app.js'; // Importa la app configurada
 import connectDB from './src/config/db.js';
@@ -6,13 +22,47 @@ import logger from './src/config/logger.js';
 // Cargar variables de entorno
 dotenv.config();
 
+/**
+ * @constant {boolean} isProduction
+ * @description Indica si el entorno actual es de producción
+ */
 const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * @constant {number} PORT
+ * @description Puerto del servidor (tomado de variables de entorno o 3000 por defecto)
+ */
 const PORT = process.env.PORT || 3000; // Puerto por defecto
+
+/**
+ * @constant {number} MAX_SERVER_RETRIES
+ * @description Máximo número de reintentos para iniciar el servidor
+ */
 const MAX_SERVER_RETRIES = 6; // Límite de reintentos
+
+/**
+ * @constant {number} SERVER_RETRY_DELAY
+ * @description Tiempo de espera entre reintentos (en milisegundos)
+ */
 const SERVER_RETRY_DELAY = 10000; // 10 segundos entre intentos
+
+/**
+ * @let {number} serverRetryCount
+ * @description Contador de reintentos actuales
+ */
 let serverRetryCount = 0;
 
-// Iniciar el servidor
+/**
+ * @async
+ * @function startServer
+ * @description Inicia el servidor con manejo de errores y reintentos
+ * 
+ * @throws {Error} Si no puede conectar a la base de datos
+ * @throws {Error} Si no puede iniciar el servidor después de varios intentos
+ * 
+ * @example
+ * startServer(); // Inicia el servidor con configuración automática
+ */
 async function startServer() {
     try {
         await connectDB();
@@ -51,9 +101,27 @@ async function startServer() {
     }
 }
 
-// Iniciar con manejo de señales
+/**
+ * @event SIGTERM
+ * @description Maneja señal de terminación para apagado limpio
+ */
 process.on('SIGTERM', () => {
-    logger.info('Recibida señal SIGTERM. Cerrando servidor...');
+    logger.info('Recibida señal SIGTERM. Cerrando servidor...', {
+        signal: 'SIGTERM',
+        uptime: process.uptime()
+    });
+    process.exit(0);
+});
+
+/**
+ * @event SIGINT
+ * @description Maneja señal de interrupción (Ctrl+C)
+ */
+process.on('SIGINT', () => {
+    logger.info('Recibida señal SIGINT. Cerrando servidor...', {
+        signal: 'SIGINT',
+        uptime: process.uptime()
+    });
     process.exit(0);
 });
 

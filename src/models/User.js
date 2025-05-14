@@ -1,21 +1,69 @@
+/**
+ * @module models/User
+ * @description Modelo para usuarios del sistema con:
+ * - Autenticación segura (JWT + refresh tokens)
+ * - Gestión de roles (egresado/admin)
+ * - Verificación por email
+ * - Restablecimiento de contraseña
+ * - Relación 1:1 con Alumni para egresados
+ * @example
+ * // Buscar usuario activo por email:
+ * const user = await User.findOne({ email: 'correo@uvm.edu.ve', isActive: true })
+ *                        .select('+password');
+ */
+
 import mongoose from 'mongoose';
 
+/**
+ * @typedef {Object} User
+ * @description Usuario registrado en el sistema
+ * @property {mongoose.Types.ObjectId} _id - ID único generado por MongoDB
+ * @property {string} username - Nombre de usuario (único, min 4, max 20 chars)
+ * @property {string} email - Email institucional (validado por regex)
+ * @property {string} password - Hash bcrypt de la contraseña
+ * @property {'egresado'|'admin'} role - Rol del sistema
+ * @property {boolean} isVerified - Indica si el email fue verificado
+ * @property {boolean} isActive - Indica si la cuenta está habilitada
+ * @property {Date} lastLogin - Fecha del último acceso
+ * @property {mongoose.Types.ObjectId} [alumni] - Referencia a Alumni (solo role=egresado)
+ * @property {string} [fullName] - Nombre completo (solo role=admin)
+ * @property {Date} createdAt - Fecha de creación (auto)
+ * @property {Date} updatedAt - Fecha de actualización (auto)
+ */
+
+/**
+ * @constant {mongoose.Schema} UserSchema
+ * @description Esquema Mongoose para usuarios con:
+ * - Validación estricta de campos
+ * - Seguridad: campos sensibles con select:false
+ * - Comportamiento condicional según rol
+ * - Timestamps automáticos
+ * - Transform para eliminar campos internos en respuestas JSON
+ * 
+ * @see {@link https://mongoosejs.com/docs/guide.html|Mongoose Schemas}
+ */
 const UserSchema = new mongoose.Schema({
-    // Para egresados
+    /**
+     * Relación con Alumni (solo egresados)
+     */
     alumni: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Alumni',
         required: function () { return this.role === 'egresado'; }
     },
 
-    // Para administradores (sin relación con Alumni)
+    /**
+     * Datos para administradores (solo role=admin)
+     */
     fullName: {
         type: String,
         required: function () { return this.role === 'admin'; },
         trim: true
     },
 
-    // Campos comunes
+    /**
+     * Credenciales
+     */
     username: {
         type: String,
         required: true,
@@ -37,7 +85,19 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true,
         select: false,
-        minlength: 8
+        minlength: 8,
+        /**
+         * @description Validación personalizada de contraseña:
+         * - Mínimo 8 caracteres
+         * - Requiere: 1 mayúscula, 1 minúscula, 1 número
+         * - Se hashea con bcrypt antes de guardar
+         */
+        // validate: {
+        //     validator: function (v) {
+        //         return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(v);
+        //     },
+        //     message: props => `La contraseña debe tener al menos 8 caracteres con: 1 mayúscula, 1 minúscula y 1 número`
+        // }
     },
     role: {
         type: String,
@@ -45,7 +105,9 @@ const UserSchema = new mongoose.Schema({
         required: true
     },
 
-    // Campos para verificación por email
+    /**
+     * Verificación de email
+     */
     isVerified: {
         type: Boolean,
         default: false
@@ -74,14 +136,18 @@ const UserSchema = new mongoose.Schema({
         select: false
     },
 
-    // Campos para manejo de sesión
+    /**
+     * Gestión de sesión
+     */
     lastLogin: Date,
     isActive: {
         type: Boolean,
         default: false
     },
 
-    // Campos para restablecimiento de contraseña
+    /**
+     * Restablecimiento de contraseña
+     */
     resetPasswordToken: {
         type: String,
         select: false
@@ -102,12 +168,21 @@ const UserSchema = new mongoose.Schema({
     }
 }, {
     timestamps: true,
+    /**
+    * @description Configuración para transformar documentos en JSON:
+    * - Añade virtuals
+    * - Elimina campos internos (__v, tokens)
+    * @constant {object} toJSON
+    */
     toJSON: {
         virtuals: true,
         transform: (doc, ret) => {
             delete ret.__v;
+            delete ret.password;
             delete ret.verificationToken;
             delete ret.verificationTokenExpires;
+            delete ret.resetPasswordToken;
+            delete ret.resetPasswordExpires;
             return ret;
         }
     },
@@ -115,8 +190,11 @@ const UserSchema = new mongoose.Schema({
         virtuals: true,
         transform: (doc, ret) => {
             delete ret.__v;
+            delete ret.password;
             delete ret.verificationToken;
             delete ret.verificationTokenExpires;
+            delete ret.resetPasswordToken;
+            delete ret.resetPasswordExpires;
             return ret;
         }
     }

@@ -1,9 +1,39 @@
+/**
+ * @module models/Alumni
+ * @description Modelo de egresados con: 
+ * - Validación contra registros oficiales
+ * - Relación 1:1 con User para autenticación
+ * @example
+ * // Buscar egresado por cédula:
+ * const alumni = await Alumni.findOne({ idNumber: 'V-12345678' });
+ */
+
 import mongoose from 'mongoose';
+
+/**
+ * @typedef {Object} Alumni
+ * @description Egresado registrado en el sistema
+ * @property {mongoose.Types.ObjectId} _id - ID único generado por MongoDB
+ * @property {string} idNumber - Cédula (formato V/E-12345678)
+ * @property {string} firstName - Nombres
+ * @property {string} lastName - Apellidos
+ * @property {Date} birthDate - Fecha de nacimiento
+ * @property {string} email - Email institucional validado
+ * @property {string} location - Ubicación geográfica
+ * @property {string} degree - Carrera cursada
+ * @property {string} [mention] - Mención/Especialización (opcional)
+ * @property {string} studentId - Número de expediente único
+ * @property {Date} graduationDate - Fecha de graduación
+ * @property {boolean} isRegistered - Indica si completó registro en plataforma
+ * @property {Date} [registrationDate] - Fecha de registro en plataforma
+ * @property {Date} createdAt - Fecha de creación (auto)
+ * @property {Date} updatedAt - Fecha de actualización (auto)
+ */
 
 const AlumniSchema = new mongoose.Schema({
     /**
-    * Datos personales
-    */
+     * Datos Personales
+     */
     // Cédula
     idNumber: {
         type: String,
@@ -44,12 +74,21 @@ const AlumniSchema = new mongoose.Schema({
     },
 
     /**
-    * Datos académicos
-    */
+     * Datos académicos
+     */
     // Carrera
     degree: {
         type: String,
         required: true,
+        /**
+         * @description Carreras disponibles en el sistema:
+         * - Licenciatura en Administración de Empresas
+         * - Licenciatura en Contaduría Pública
+         * - Ingeniería de Computación
+         * - Ingeniería Industrial
+         * - Derecho
+         * - Ciencias Políticas y Administrativas
+        */
         enum: [
             'Licenciatura en Administración de Empresas',
             'Licenciatura en Contaduría Pública',

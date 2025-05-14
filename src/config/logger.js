@@ -1,8 +1,38 @@
+/**
+ * @fileoverview Configuración avanzada del sistema de logging
+ * @module config/logger
+ * @requires winston - Librería base de logging
+ * @requires winston-daily-rotate-file - Rotación de archivos de log
+ * @requires path - Manejo de rutas de archivos
+ * @requires url - Utilidades para URLs
+ * @requires dotenv - Manejo de variables de entorno
+ * 
+ * @description  
+ * Logger de producción listo con:
+ * - Niveles personalizados (fatal, error, warn, info, http, debug)  
+ * - Formateo estructurado (JSON ordenado)  
+ * - Rotación automática de archivos  
+ * - Separación por categorías (app, error, http, security)  
+ * - Integración con Morgan para logs HTTP  
+ * - Manejo de excepciones y rejected promises
+ */
+
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+
+/**
+ * @typedef {Object} LogEntry
+ * @property {string} timestamp - Fecha en formato ISO
+ * @property {string} service - Nombre del servicio (default: 'red-egresados-backend')
+ * @property {'fatal'|'error'|'warn'|'info'|'http'|'debug'} level - Nivel de severidad
+ * @property {string} message - Mensaje descriptivo
+ * @property {string} [requestId] - ID de correlación de la petición
+ * @property {string} [context] - Contexto de la operación (security, validation, etc.)
+ * @property {string} [stack] - Stack trace para errores
+ */
 
 // Configuración de rutas ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -195,7 +225,30 @@ const transports = [
     })
 ];
 
-// Crear el logger principal
+/**
+ * Configuración principal del logger
+ * @type {winston.Logger}
+ * @property {Object} morganStream - Stream para integración con Morgan
+ * 
+ * @example
+ * // Uso básico:
+ * logger.info('Mensaje informativo', { context: 'startup' });
+ * 
+ * // Con metadata estructurada:
+ * logger.error('Error en conexión', {
+ *   context: 'database',
+ *   error: err.message,
+ *   stack: err.stack
+ * });
+ * 
+ * // Para HTTP requests (usado por morganStream):
+ * logger.http('Solicitud HTTP', {
+ *   method: 'GET',
+ *   path: '/api/users',
+ *   status: 200,
+ *   durationMs: 45
+ * });
+ */
 const logger = winston.createLogger({
     levels: logLevels,
     transports,
@@ -218,6 +271,13 @@ const logger = winston.createLogger({
     exitOnError: false
 });
 
+/**
+ * Stream especial para integración con Morgan
+ * @name morganStream
+ * @memberof module:config/logger~logger
+ * @type {Object}
+ * @property {Function} write - Procesa logs HTTP
+ */
 logger.morganStream = {
     write: (message) => {
         const regex = /^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+) HTTP\/[^"]+" (\d+) (\d+) "([^"]*)" "([^"]*)"(?: (\d+)ms)?$/;
