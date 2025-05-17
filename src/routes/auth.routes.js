@@ -117,10 +117,6 @@ export default function authRoutes(emailService) {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/login', validate(loginSchema), authController.login);
-    router.post('/login',
-        validate(loginSchema),
-        authController.login
-    );
 
     /**
      * @swagger
@@ -172,10 +168,7 @@ export default function authRoutes(emailService) {
      *                     message: "Error al revocar tokens"
      *                     details: ["Error de conexión con MongoDB"]
      */
-    router.post('/logout',
-        authenticate,
-        authController.logout
-    );
+    router.post('/logout', authenticate, authController.logout);
 
     /**
      * @swagger
@@ -361,10 +354,7 @@ export default function authRoutes(emailService) {
      *                     code: "EMAIL_500"
      *                     message: "Error al enviar correo"
      */
-    router.post('/register/alumni',
-        validate(alumniRegistrationSchema),
-        authController.registerAlumni
-    );
+    router.post('/register/alumni', validate(alumniRegistrationSchema), authController.registerAlumni);
 
     /**
      * @swagger
@@ -444,12 +434,7 @@ export default function authRoutes(emailService) {
      *                     code: "ADMIN_409"
      *                     message: "El administrador ya existe"
      */
-    router.post('/register/admin',
-        authenticate,
-        authorize('admin'),
-        validate(adminRegisterSchema),
-        authController.registerAdmin
-    );
+    router.post('/register/admin', authenticate, authorize('admin'), validate(adminRegisterSchema), authController.registerAdmin);
 
     /**
      * @swagger
@@ -530,10 +515,7 @@ export default function authRoutes(emailService) {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
-    router.get('/verify-email',
-        validateQuery(emailVerificationSchema),
-        authController.verifyEmail
-    );
+    router.get('/verify-email', validateQuery(emailVerificationSchema), authController.verifyEmail);
 
     /**
      * @swagger
@@ -623,10 +605,7 @@ export default function authRoutes(emailService) {
      *                     message: "Límite de reenvíos alcanzado"
      *                     details: ["Máximo 3 intentos cada 24 horas"]
      */
-    router.post('/resend-verification',
-        validate(resendVerificationSchema),
-        authController.resendVerificationEmail
-    );
+    router.post('/resend-verification', validate(resendVerificationSchema), authController.resendVerificationEmail);
 
     /**
      * @swagger
@@ -702,10 +681,7 @@ export default function authRoutes(emailService) {
      *                     message: "Demasiadas solicitudes"
      *                     details: ["Por favor espere 1 hora antes de reintentar"]
      */
-    router.post('/forgot-password',
-        validate(forgotPasswordSchema),
-        authController.forgotPassword
-    );
+    router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 
     /**
      * @swagger
@@ -786,10 +762,7 @@ export default function authRoutes(emailService) {
      *                     code: "DB_500"
      *                     message: "Error al guardar nueva contraseña"
      */
-    router.post('/reset-password',
-        validate(resetPasswordSchema),
-        authController.resetPassword
-    );
+    router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
     return router;
 }

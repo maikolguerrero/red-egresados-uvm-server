@@ -46,6 +46,7 @@ import EmailService from './services/email.service.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
+import alumniRoutes from './routes/alumni.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -221,6 +222,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
  * @see {@link ./routes/auth.routes.js}
  */
 app.use('/api/auth', authLimiter, authRoutes(emailService));
+app.use('/api/alumni', apiLimiter , alumniRoutes());
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores

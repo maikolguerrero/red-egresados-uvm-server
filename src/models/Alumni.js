@@ -126,12 +126,23 @@ const AlumniSchema = new mongoose.Schema({
     // Fecha de registro
     registrationDate: {
         type: Date
+    },
+    /**
+     * Relación con usuario (solo egresados)
+     */
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        unique: true,
+        sparse: true
     }
 }, {
     timestamps: true,
     toJSON: {
         virtuals: true,
         transform: (doc, ret) => {
+            ret.id = ret._id;
+            delete ret._id;
             delete ret.__v;
             return ret;
         }
@@ -139,6 +150,8 @@ const AlumniSchema = new mongoose.Schema({
     toObject: {
         virtuals: true,
         transform: (doc, ret) => {
+            ret.id = ret._id;
+            delete ret._id;
             delete ret.__v;
             return ret;
         }

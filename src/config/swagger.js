@@ -65,7 +65,8 @@ const swaggerOptions = {
         tags: [
             {
                 name: 'Autenticación',
-                description: 'Endpoints para registro, login y manejo de tokens'
+                // description: 'Endpoints para registro, login y manejo de tokens'
+                description: "Operaciones relacionadas con la búsqueda y visualización de egresados"
             },
             {
                 name: 'Egresados',

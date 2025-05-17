@@ -442,3 +442,73 @@
  *           accessToken=abc123; Path=/; HttpOnly; SameSite=Lax; Max-Age=900
  *           refreshToken=xyz789; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800
  */
+
+// =============================================
+// Sección 7: Esquemas de Egresados
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AlumniProfile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         idNumber:
+ *           type: string
+ *           example: "V-12345678"
+ *         firstName:
+ *           type: string
+ *           example: "Juan"
+ *         lastName:
+ *           type: string
+ *           example: "Pérez"
+ *         birthDate:
+ *           type: string
+ *           format: date
+ *           example: "1990-05-15"
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: "juan.perez@uvm.edu.ve"
+ *         location:
+ *           type: string
+ *           example: "Valera, Trujillo"
+ *         degree:
+ *           type: string
+ *           example: "Ingeniería de Computación"
+ *         mention:
+ *           type: string
+ *           example: "Sistemas Distribuidos"
+ *         studentId:
+ *           type: string
+ *           example: "UV20230001"
+ *         graduationDate:
+ *           type: string
+ *           format: date
+ *           example: "2020-07-20"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *         user:
+ *           type: object
+ *           properties:
+ *             username:
+ *               type: string
+ *               example: "jperez2020"
+ *             isActive:
+ *               type: boolean
+ *               example: true
+ *             lastLogin:
+ *               type: string
+ *               format: date-time
+ *             memberSince:
+ *               type: string
+ *               format: date-time
+ */

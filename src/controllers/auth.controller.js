@@ -22,6 +22,21 @@ import dotenv from 'dotenv';
 // Cargar variables de entorno
 dotenv.config();
 
+/**
+ * @classdesc Controlador para operaciones relacionadas con autenticación
+ * @class AuthController
+ * 
+ * @description
+ * Maneja todas las operaciones relacionadas con:
+ * - Registro
+ * - Login
+ * - Generación de tokens
+ * 
+ * @example
+ * // Uso típico en rutas:
+ * const authController = new AuthController();
+ * router.post('/register', authController.registerAlumni);
+ */
 export default class AuthController {
 
     /**
@@ -180,6 +195,7 @@ export default class AuthController {
             // Actualizar registro del egresado
             alumni.isRegistered = true;
             alumni.registrationDate = new Date();
+            alumni.user = user._id;
             await alumni.save();
 
             // Éxito (logger solo para confirmación)

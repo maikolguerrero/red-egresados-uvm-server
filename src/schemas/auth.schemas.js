@@ -25,6 +25,7 @@ const usernameSchema = yup.string()
     .min(4, 'El usuario debe tener al menos 4 caracteres')
     .max(20, 'El usuario no puede exceder 20 caracteres')
     .matches(/^[a-z0-9_]+$/, 'Solo letras minúsculas, números y guiones bajos')
+    .transform(value => value.toLowerCase())
     .required('El nombre de usuario es requerido');
 
 // Esquema para registro
