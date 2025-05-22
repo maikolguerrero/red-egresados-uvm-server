@@ -8,7 +8,7 @@
  * - Modelos de respuesta
  * - Definiciones de errores estandarizados
  * - Enums y tipos compartidos
- * 
+ *
  * Los esquemas siguen el estándar OpenAPI 3.0 y están organizados por categorías:
  * 1. Autenticación
  * 2. Registro de usuarios
@@ -52,7 +52,7 @@
  *       example:
  *         emailOrUsername: "jperez@uvm.edu.ve"
  *         password: "SecurePassword123*"
- * 
+ *
  *     RefreshTokenRequest:
  *       type: object
  *       description: Solicitud para renovar tokens JWT
@@ -63,7 +63,7 @@
  *             Token de refresco (opcional si se envía en cookies HTTP-Only).
  *             Válido por 7 días.
  *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- * 
+ *
  *     LogoutResponse:
  *       type: object
  *       description: Respuesta exitosa al cerrar sesión
@@ -74,20 +74,20 @@
  *         message:
  *           type: string
  *           example: "Sesión cerrada correctamente"
- * 
+ *
  *   securitySchemes:
  *     bearerAuth:
  *       type: http
  *       scheme: bearer
  *       bearerFormat: JWT
  *       description: |
- *         **Mecanismo de autenticación**:  
- *         - JWT en formato Bearer Token  
- *         **Opciones de envío**:  
- *         1. Cookie HTTP-Only (recomendado): `accessToken=abc123`  
- *         2. Header Authorization: `Bearer <token>`  
- *         **Duración**:  
- *         - Access Token: 15 minutos  
+ *         **Mecanismo de autenticación**:
+ *         - JWT en formato Bearer Token
+ *         **Opciones de envío**:
+ *         1. Cookie HTTP-Only (recomendado): `accessToken=abc123`
+ *         2. Header Authorization: `Bearer <token>`
+ *         **Duración**:
+ *         - Access Token: 15 minutos
  *         - Refresh Token: 7 días
  */
 
@@ -172,7 +172,7 @@
  *           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
  *           example: "Uvm2024*"
  *           description: Contraseña segura con requisitos complejos
- * 
+ *
  *     AdminRegistrationRequest:
  *       type: object
  *       required:
@@ -204,7 +204,7 @@
  *           minLength: 8
  *           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
  *           example: "AdminSecure123*"
- * 
+ *
  *   examples:
  *     AlumniDegreeEnum:
  *       description: Carreras disponibles para egresados
@@ -275,7 +275,7 @@
  *       required:
  *         - success
  *         - error
- * 
+ *
  *     ValidationError:
  *       type: object
  *       description: Error de validación para un campo específico
@@ -292,7 +292,7 @@
  *           type: string
  *           example: "minLength"
  *           description: Regla de validación violada
- * 
+ *
  *   examples:
  *     ErrorExamples:
  *       invalidCredentials:
@@ -327,7 +327,7 @@
  *             Token JWT de verificación recibido por email.
  *             Válido por 24 horas.
  *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- * 
+ *
  *     ResendVerificationRequest:
  *       type: object
  *       required:
@@ -340,7 +340,7 @@
  *           pattern: '^[^@]+@uvm\.edu\.ve$'
  *           example: "juan.perez@uvm.edu.ve"
  *           description: Email institucional a verificar
- * 
+ *
  *   examples:
  *     VerificationSuccess:
  *       summary: Verificación exitosa
@@ -350,7 +350,7 @@
  *         data:
  *           userId: "507f1f77bcf86cd799439011"
  *           isActive: true
- * 
+ *
  *     VerificationRateLimit:
  *       summary: Límite de reenvíos
  *       value:
@@ -382,7 +382,7 @@
  *           pattern: '^[^@]+@uvm\.edu\.ve$'
  *           example: "juan.perez@uvm.edu.ve"
  *           description: Email institucional registrado
- * 
+ *
  *     ResetPasswordRequest:
  *       type: object
  *       required:
@@ -402,14 +402,14 @@
  *           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$'
  *           example: "NewSecurePassword123*"
  *           description: Nueva contraseña que cumpla políticas de seguridad
- * 
+ *
  *   examples:
  *     PasswordResetSuccess:
  *       summary: Contraseña actualizada
  *       value:
  *         success: true
  *         message: "Contraseña actualizada correctamente"
- * 
+ *
  *     PasswordResetError:
  *       summary: Token inválido
  *       value:
@@ -511,4 +511,153 @@
  *             memberSince:
  *               type: string
  *               format: date-time
+ */
+
+// =============================================
+// Sección 8: Esquemas de Perfil de Usuario
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserProfile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         user:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439012"
+ *         contact:
+ *           type: object
+ *           properties:
+ *             phone:
+ *               type: string
+ *               example: "+584123456789"
+ *             alternateEmail:
+ *               type: string
+ *               format: email
+ *               example: "personal@example.com"
+ *             website:
+ *               type: string
+ *               format: url
+ *               example: "https://miweb.com"
+ *         socialMedia:
+ *           type: object
+ *           properties:
+ *             instagram:
+ *               type: string
+ *               example: "@usuario"
+ *             facebook:
+ *               type: string
+ *               format: url
+ *               example: "https://facebook.com/usuario"
+ *             linkedin:
+ *               type: string
+ *               format: url
+ *               example: "https://linkedin.com/in/usuario"
+ *             x:
+ *               type: string
+ *               format: url
+ *               example: "https://x.com/usuario"
+ *             youtube:
+ *               type: string
+ *               format: url
+ *               example: "https://youtube.com/usuario"
+ *             tiktok:
+ *               type: string
+ *               format: url
+ *               example: "https://tiktok.com/@usuario"
+ *             whatsapp:
+ *               type: string
+ *               format: url
+ *               example: "https://whatsapp.com/usuario"
+ *             telegram:
+ *               type: string
+ *               format: url
+ *               example: "https://telegram.com/usuario"
+ *             github:
+ *               type: string
+ *               format: url
+ *               example: "https://github.com/usuario"
+ *         professional:
+ *           type: object
+ *           properties:
+ *             title:
+ *               type: string
+ *               example: "Ingeniero de Software"
+ *             summary:
+ *               type: string
+ *               example: "Experto en desarrollo web con 5 años de experiencia..."
+ *             skills:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["JavaScript", "React", "Node.js"]
+ *             interests:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Tecnología", "Viajes", "Música"]
+ *         experience:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               position:
+ *                 type: string
+ *                 example: "Desarrollador Senior"
+ *               company:
+ *                 type: string
+ *                 example: "Acme Inc."
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *               current:
+ *                 type: boolean
+ *               description:
+ *                 type: string
+ *         education:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               institution:
+ *                 type: string
+ *                 example: "Universidad XYZ"
+ *               degree:
+ *                 type: string
+ *                 example: "Maestría en Ciencias de la Computación"
+ *               fieldOfStudy:
+ *                 type: string
+ *                 example: "Inteligencia Artificial"
+ *               startYear:
+ *                 type: integer
+ *               endYear:
+ *                 type: integer
+ *         certifications:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Certificado AWS Developer"
+ *               issuingOrganization:
+ *                 type: string
+ *                 example: "Amazon Web Services"
+ *               issueDate:
+ *                 type: string
+ *                 format: date
+ *               credentialID:
+ *                 type: string
+ *               credentialURL:
+ *                 type: string
+ *                 format: url
  */

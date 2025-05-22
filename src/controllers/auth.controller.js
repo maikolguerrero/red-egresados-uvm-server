@@ -5,6 +5,7 @@
  * @requires jsonwebtoken
  * @requires ../models/Alumni
  * @requires ../models/User
+ * @requires ../models/UserProfile
  * @requires ../models/RefreshToken
  * @requires ../models/TokenBlacklist
  * @requires AppError
@@ -14,6 +15,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Alumni from '../models/Alumni.js';
 import User from '../models/User.js';
+import UserProfile from '../models/UserProfile.js';
 import RefreshToken from '../models/RefreshToken.js';
 import TokenBlacklist from '../models/TokenBlacklist.js';
 import AppError from '../middlewares/AppError.js';
@@ -191,6 +193,14 @@ export default class AuthController {
                 verificationToken,
                 verificationTokenExpires
             });
+
+            // Crear perfil del usuario
+            const newProfile = await UserProfile.create({
+                user: user._id
+            });
+
+            // Actualizar el usuario con la referencia al perfil
+            await User.findByIdAndUpdate(user._id, { profile: newProfile._id });
 
             // Actualizar registro del egresado
             alumni.isRegistered = true;

@@ -3,11 +3,13 @@
  * @module controllers/alumni.controller
  * @requires ../models/Alumni
  * @requires ../models/User
+ * @requires ../models/UserProfile
  * @requires AppError
  */
 
 import Alumni from '../models/Alumni.js';
 import User from '../models/User.js';
+import UserProfile from '../models/UserProfile.js';
 import AppError from '../middlewares/AppError.js';
 
 /**
@@ -114,34 +116,57 @@ export default class AlumniController {
     /**
      * @method getAlumniProfileByUsername
      * @async
-     * @description Obtiene el perfil público de un egresado
+     * @description Obtiene el perfil público de un egresado incluyendo información de UserProfile
      * @param {Object} req - Objeto de petición Express
      * @param {Object} res - Objeto de respuesta Express
      * @param {Function} next - Función para pasar al siguiente middleware
-     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil completo
      */
     getAlumniProfileByUsername = async (req, res, next) => {
         try {
             const { username } = req.params;
 
+            req.logger.debug('Buscando perfil público de egresado', {
+                action: 'get_public_profile',
+                username,
+                ip: req.ip
+            });
+
+            // Buscar usuario con todos los datos relacionados
             const user = await User.findOne({
                 username: username.toLowerCase(),
                 role: 'egresado'
             })
                 .populate({
                     path: 'alumni',
-                    options: {
-                        select: '-__v -studentId -idNumber -isRegistered -registrationDate -createdAt -updatedAt', // Excluye campos
-                    }
+                    select: '-__v -studentId -idNumber -isRegistered -registrationDate -createdAt -updatedAt'
                 })
+                .populate({
+                    path: 'profile',
+                    select: '-__v -user -createdAt -updatedAt'
+                });
 
-            if (!user?.alumni) {
-                throw new AppError('Perfil no encontrado', 404, 'PROFILE_NOT_FOUND');
+            if (!user) {
+                throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND', {
+                    action: 'get_public_profile',
+                    username,
+                    ip: req.ip
+                });
             }
 
-            // Convertir a objeto aplicando transformaciones automáticas
-            const alumniData = user.alumni.toObject(); // Respeta toJSON/toObject
+            if (!user?.alumni) {
+                throw new AppError('Datos de egresado no encontrados', 404, 'ALUMNI_DATA_NOT_FOUND', {
+                    action: 'get_public_profile',
+                    username,
+                    userId: user._id,
+                    ip: req.ip
+                });
+            }
+
+            // Convertir a objetos
+            const alumniData = user.alumni.toObject();
             const userData = user.toObject();
+            const profileData = user.profile?.toObject() || {};
 
             // Estructurar respuesta
             const response = {
@@ -150,13 +175,200 @@ export default class AlumniController {
                     username: userData.username,
                     memberSince: userData.createdAt,
                     lastLogin: userData.lastLogin
-                }
+                },
+                profile: profileData
             };
+
+            req.logger.info('Perfil público obtenido exitosamente', {
+                action: 'get_public_profile_success',
+                username,
+                userId: user._id,
+                ip: req.ip
+            });
 
             res.json({
                 success: true,
                 data: response
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method updateProfile
+     * @async
+     * @description Actualiza el perfil del usuario autenticado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si no se encuentra el perfil
+     *  - 500 si hay error al actualizar
+     */
+    updateProfile = async (req, res, next) => {
+        try {
+            const userId = req.user.id;
+            const updateData = req.body;
+
+            req.logger.debug('Inicio de actualización de perfil', {
+                action: 'profile_update',
+                userId,
+                ip: req.ip,
+                updateFields: Object.keys(updateData)
+            });
+
+            // Buscar el perfil del usuario
+            const userProfile = await UserProfile.findOne({ user: userId });
+
+            if (!userProfile) {
+                throw new AppError(
+                    'Perfil no encontrado',
+                    404,
+                    'PROFILE_NOT_FOUND',
+                    {
+                        action: 'profile_update',
+                        userId,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Función para actualizar arrays manteniendo los IDs cuando corresponda
+            const updateArrayField = (fieldName, idField = '_id') => {
+                if (updateData[fieldName]) {
+                    userProfile[fieldName] = updateData[fieldName].map(item => {
+                        // Si el item tiene ID, buscarlo en el array existente para mantenerlo
+                        if (item[idField]) {
+                            const existingItem = userProfile[fieldName].find(
+                                existing => existing[idField].toString() === item[idField].toString()
+                            );
+                            if (existingItem) {
+                                return { ...existingItem.toObject(), ...item };
+                            }
+                        }
+                        return item;
+                    });
+                }
+            };
+
+            // Actualizar campos según lo recibido
+            if (updateData.contact) {
+                userProfile.contact = {
+                    ...userProfile.contact,
+                    ...updateData.contact
+                };
+            }
+
+            if (updateData.socialMedia) {
+                userProfile.socialMedia = {
+                    ...userProfile.socialMedia,
+                    ...updateData.socialMedia
+                };
+            }
+
+            if (updateData.professional) {
+                userProfile.professional = {
+                    ...userProfile.professional,
+                    ...updateData.professional
+                };
+
+                // Manejar arrays de skills e interests por separado para evitar sobrescribir
+                if (updateData.professional.skills) {
+                    userProfile.professional.skills = [...new Set([
+                        ...(userProfile.professional.skills || []),
+                        ...(updateData.professional.skills || [])
+                    ])];
+                }
+
+                if (updateData.professional.interests) {
+                    userProfile.professional.interests = [...new Set([
+                        ...(userProfile.professional.interests || []),
+                        ...(updateData.professional.interests || [])
+                    ])];
+                }
+            }
+
+            // Manejar experiencia laboral (array de objetos)
+            if (updateData.experience) {
+                updateArrayField('experience');
+
+                // Validar que cada experiencia tenga los campos requeridos
+                userProfile.experience.forEach(exp => {
+                    if (!exp.position || !exp.company || !exp.startDate) {
+                        throw new AppError(
+                            'Experiencia laboral incompleta. Se requieren puesto, empresa y fecha de inicio',
+                            400,
+                            'INVALID_EXPERIENCE_DATA',
+                            {
+                                action: 'profile_update',
+                                userId,
+                                ip: req.ip
+                            }
+                        );
+                    }
+                });
+            }
+
+            // Manejar educación (array de objetos)
+            if (updateData.education) {
+                updateArrayField('education');
+
+                // Validar campos requeridos
+                userProfile.education.forEach(edu => {
+                    if (!edu.institution) {
+                        throw new AppError(
+                            'Educación incompleta. Se requiere institución',
+                            400,
+                            'INVALID_EDUCATION_DATA',
+                            {
+                                action: 'profile_update',
+                                userId,
+                                ip: req.ip
+                            }
+                        );
+                    }
+                });
+            }
+
+            // Manejar certificaciones (array de objetos)
+            if (updateData.certifications) {
+                updateArrayField('certifications');
+
+                // Validar campos requeridos
+                userProfile.certifications.forEach(cert => {
+                    if (!cert.name || !cert.issuingOrganization) {
+                        throw new AppError(
+                            'Certificación incompleta. Se requiere nombre y organización emisora',
+                            400,
+                            'INVALID_CERTIFICATION_DATA',
+                            {
+                                action: 'profile_update',
+                                userId,
+                                ip: req.ip
+                            }
+                        );
+                    }
+                });
+            }
+
+            // Guardar cambios
+            const updatedProfile = await userProfile.save();
+
+            req.logger.info('Perfil actualizado exitosamente', {
+                action: 'profile_update_success',
+                userId,
+                updatedFields: Object.keys(updateData),
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Perfil actualizado correctamente',
+                data: updatedProfile
+            });
+
         } catch (error) {
             next(error);
         }

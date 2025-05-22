@@ -2,8 +2,9 @@
 import express from 'express';
 import AlumniController from '../controllers/alumni.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
-import { validateQuery, validateParams } from '../middlewares/validate.middleware.js';
+import { validate, validateQuery, validateParams } from '../middlewares/validate.middleware.js';
 import { alumniSearchSchema, usernameParamSchema } from '../schemas/alumni.schemas.js';
+import { profileUpdateSchema } from '../schemas/userProfile.schemas.js';
 
 /**
  * @swagger
@@ -155,6 +156,103 @@ export default function alumniRoutes() {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/:username', authenticate, validateParams(usernameParamSchema), alumniController.getAlumniProfileByUsername);
-    
+
+    /**
+     * @swagger
+     * /api/alumni/update-profile:
+     *   patch:
+     *     summary: Actualizar perfil del egresado
+     *     description: Permite al egresado autenticado actualizar su información de perfil
+     *     tags: [Egresados]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               contact:
+     *                 type: object
+     *                 properties:
+     *                   phone:
+     *                     type: string
+     *                     example: "+584123456789"
+     *                   alternateEmail:
+     *                     type: string
+     *                     format: email
+     *                     example: "personal@example.com"
+     *                   website:
+     *                     type: string
+     *                     format: url
+     *                     example: "https://miweb.com"
+     *               socialMedia:
+     *                 type: object
+     *                 properties:
+     *                   linkedin:
+     *                     type: string
+     *                     format: url
+     *                     example: "https://linkedin.com/in/usuario"
+     *                   github:
+     *                     type: string
+     *                     format: url
+     *                     example: "https://github.com/usuario"
+     *                   instagram:
+     *                     type: string
+     *                     example: "@usuario"
+     *               professional:
+     *                 type: object
+     *                 properties:
+     *                   title:
+     *                     type: string
+     *                     example: "Ingeniero de Software"
+     *                   summary:
+     *                     type: string
+     *                     example: "Experto en desarrollo web con 5 años de experiencia..."
+     *                   skills:
+     *                     type: array
+     *                     items:
+     *                       type: string
+     *                     example: ["JavaScript", "React", "Node.js"]
+     *     responses:
+     *       200:
+     *         description: Perfil actualizado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Perfil actualizado correctamente"
+     *                 data:
+     *                   $ref: '#/components/schemas/UserProfile'
+     *       400:
+     *         description: Validación fallida
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       404:
+     *         description: Perfil no encontrado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       500:
+     *         description: Error del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.patch('/update-profile', authenticate, validate(profileUpdateSchema), alumniController.updateProfile);
+
     return router;
 }

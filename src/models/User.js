@@ -51,6 +51,14 @@ const UserSchema = new mongoose.Schema({
         ref: 'Alumni',
         required: function () { return this.role === 'egresado'; }
     },
+    
+    /**
+     * Relación con UserProfile
+     */
+    profile: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserProfile'
+    },
 
     /**
      * Datos para administradores (solo role=admin)
@@ -185,6 +193,8 @@ const UserSchema = new mongoose.Schema({
             delete ret.verificationTokenExpires;
             delete ret.resetPasswordToken;
             delete ret.resetPasswordExpires;
+            delete ret.createdAt;
+            delete ret.updatedAt;
             return ret;
         }
     },
@@ -199,6 +209,8 @@ const UserSchema = new mongoose.Schema({
             delete ret.verificationTokenExpires;
             delete ret.resetPasswordToken;
             delete ret.resetPasswordExpires;
+            delete ret.createdAt;
+            delete ret.updatedAt;
             return ret;
         }
     }
