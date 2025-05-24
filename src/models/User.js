@@ -51,7 +51,7 @@ const UserSchema = new mongoose.Schema({
         ref: 'Alumni',
         required: function () { return this.role === 'egresado'; }
     },
-    
+
     /**
      * Relación con UserProfile
      */
@@ -111,6 +111,14 @@ const UserSchema = new mongoose.Schema({
         type: String,
         enum: ['egresado', 'admin'],
         required: true
+    },
+    profilePicture: {
+        type: String,
+        default: null
+    },
+    profilePicturePublicId: {
+        type: String,
+        default: null
     },
 
     /**

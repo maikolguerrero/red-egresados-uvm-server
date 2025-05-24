@@ -1,0 +1,388 @@
+/**
+ * @fileoverview Servicio mejorado para manejo de archivos en Cloudinary
+ * @module services/file.service
+ * @requires cloudinary
+ * @requires multer
+ * @requires multer-storage-cloudinary
+ * @requires dotenv
+ * 
+ * @description
+ * Versión mejorada con:
+ * - Métodos separados para fotos y videos
+ * - Configuraciones flexibles de dimensiones y calidad
+ * - Validación mejorada de tipos de archivo
+ * - Soporte para transformaciones avanzadas
+ */
+
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import multer from 'multer';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// Configuración básica de Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
+});
+
+export default class FileService {
+    constructor(logger) {
+        this.logger = logger.child({ service: 'FileService' });
+        this.cloudinary = cloudinary;
+
+        // Configuración básica de Multer
+        this.upload = multer({
+            storage: new CloudinaryStorage({ cloudinary }),
+            limits: { fileSize: 50 * 1024 * 1024 }, // 50MB máximo
+            fileFilter: this._fileFilter.bind(this)
+        });
+    }
+
+    /**
+     * @private
+     * @method _fileFilter
+     * @description Filtro para tipos de archivo permitidos
+     */
+    _fileFilter(req, file, cb) {
+        const allowedTypes = [
+            'image/jpeg', 'image/png', 'image/gif', // Imágenes
+            'video/mp4', 'video/quicktime', 'video/x-msvideo' // Videos
+        ];
+
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            const error = new AppError(
+                'Tipo de archivo no permitido',
+                400,
+                'INVALID_FILE_TYPE',
+                {
+                    action: 'file_upload',
+                    mimeType: file.mimetype,
+                    originalName: file.originalname,
+                    allowedTypes
+                }
+            );
+            cb(error, false);
+        }
+    }
+
+    /**
+     * @method uploadImage
+     * @async
+     * @description Sube una imagen con configuraciones personalizables
+     * @param {Object} file - Archivo de Multer
+     * @param {string} userId - ID del usuario
+     * @param {Object} options - Opciones de configuración
+     * @param {number} [options.width] - Ancho deseado
+     * @param {number} [options.height] - Alto deseado
+     * @param {string} [options.crop='limit'] - Tipo de recorte
+     * @param {string} [options.folder='profile'] - Carpeta de destino
+     * @param {string} [options.quality='auto:good'] - Calidad de compresión
+     * @param {string} [options.format='auto'] - Formato de salida
+     * @returns {Promise<Object>} Resultado de la subida
+     * 
+     * @example
+     * // Subir avatar con dimensiones específicas
+     * await fileService.uploadImage(file, userId, {
+     *   width: 300,
+     *   height: 300,
+     *   crop: 'fill',
+     *   folder: 'avatars'
+     * });
+     */
+    async uploadImage(file, userId, options = {}) {
+        const {
+            width,
+            height,
+            crop = 'limit',
+            folder = 'profile',
+            quality = 'auto:good',
+            format = 'auto'
+        } = options;
+
+        const publicId = `img_${userId}_${Date.now()}`;
+        const uploadPath = `uvm-alumni/${folder}/${userId}`;
+
+        this.logger.info('Subiendo imagen', {
+            action: 'uploadImage',
+            userId,
+            options,
+            originalName: file.originalname
+        });
+
+        try {
+            const result = await this.cloudinary.uploader.upload(file.path, {
+                public_id: publicId,
+                folder: uploadPath,
+                transformation: [
+                    { width, height, crop, quality, format },
+                    { fetch_format: format }
+                ],
+                overwrite: true
+            });
+
+            this.logger.info('Imagen subida exitosamente', {
+                action: 'uploadImage',
+                publicId: result.public_id,
+                url: result.secure_url
+            });
+
+            return {
+                success: true,
+                publicId: result.public_id,
+                url: result.secure_url,
+                width: result.width,
+                height: result.height,
+                format: result.format
+            };
+        } catch (error) {
+            throw new AppError(
+                'Error al subir la imagen',
+                500,
+                'IMAGE_UPLOAD_FAILED',
+                {
+                    userId,
+                    originalName: file.originalname,
+                    size: file.size,
+                    mimeType: file.mimetype
+                }
+            );
+        }
+    }
+
+    /**
+     * @method uploadVideo
+     * @async
+     * @description Sube un video con configuraciones personalizables
+     * @param {Object} file - Archivo de Multer
+     * @param {string} userId - ID del usuario
+     * @param {Object} options - Opciones de configuración
+     * @param {number} [options.width] - Ancho deseado
+     * @param {number} [options.height] - Alto deseado
+     * @param {string} [options.folder='videos'] - Carpeta de destino
+     * @param {string} [options.quality='auto:good'] - Calidad de compresión
+     * @param {string} [options.format='mp4'] - Formato de salida
+     * @param {boolean} [options.audio=true] - Mantener audio
+     * @returns {Promise<Object>} Resultado de la subida
+     * 
+     * @example
+     * // Subir video con configuración personalizada
+     * await fileService.uploadVideo(file, userId, {
+     *   width: 1280,
+     *   height: 720,
+     *   folder: 'presentations',
+     *   format: 'webm'
+     * });
+     */
+    async uploadVideo(file, userId, options = {}) {
+        const {
+            width,
+            height,
+            folder = 'videos',
+            quality = 'auto:good',
+            format = 'mp4',
+            audio = true
+        } = options;
+
+        const publicId = `vid_${userId}_${Date.now()}`;
+        const uploadPath = `uvm-alumni/${folder}/${userId}`;
+
+        this.logger.info('Subiendo video', {
+            action: 'uploadVideo',
+            userId,
+            options,
+            originalName: file.originalname,
+            size: file.size
+        });
+
+        try {
+            const result = await this.cloudinary.uploader.upload(file.path, {
+                resource_type: 'video',
+                public_id: publicId,
+                folder: uploadPath,
+                transformation: [
+                    { width, height, quality, format },
+                    { audio_codec: audio ? 'aac' : 'none' }
+                ],
+                chunk_size: 6000000, // 6MB chunks
+                eager_async: true
+            });
+
+            this.logger.info('Video subido exitosamente', {
+                action: 'uploadVideo',
+                publicId: result.public_id,
+                url: result.secure_url,
+                duration: result.duration
+            });
+
+            return {
+                success: true,
+                publicId: result.public_id,
+                url: result.secure_url,
+                duration: result.duration,
+                format: result.format,
+                width: result.width,
+                height: result.height
+            };
+        } catch (error) {
+            this.logger.error('Error al subir video', {
+                action: 'uploadVideo',
+                error: error.message
+            });
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * @method deleteFile
+     * @async
+     * @description Elimina un archivo de Cloudinary
+     * @param {string} public_id - ID público del archivo en Cloudinary
+     * @param {string} [resource_type='image'] - Tipo de recurso ('image' o 'video')
+     * @returns {Promise<Object>} Resultado de la operación
+     * 
+     * @example
+     * await fileService.deleteFile('uvm-alumni/profiles/user123/profile_123', 'image');
+     */
+    async deleteFile(public_id, resource_type = 'image') {
+        this.logger.info('Eliminando archivo de Cloudinary', {
+            action: 'deleteFile',
+            public_id,
+            resource_type
+        });
+
+        try {
+            const result = await this.cloudinary.uploader.destroy(public_id, {
+                resource_type: resource_type
+            });
+
+            if (result.result === 'ok') {
+                this.logger.info('Archivo eliminado exitosamente', {
+                    action: 'deleteFile',
+                    public_id,
+                    result
+                });
+                return { success: true };
+            } else {
+                this.logger.warn('No se pudo eliminar el archivo', {
+                    action: 'deleteFile',
+                    public_id,
+                    result
+                });
+                return { success: false, error: result.result };
+            }
+        } catch (error) {
+            this.logger.error('Error al eliminar archivo', {
+                action: 'deleteFile',
+                public_id,
+                error: error.message,
+                stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+            });
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * @method getSecureUrl
+     * @description Genera una URL segura con transformaciones
+     * @param {string} public_id - ID público del archivo
+     * @param {Object} [options] - Opciones de transformación
+     * @param {string} [options.resource_type='image'] - Tipo de recurso
+     * @param {number} [options.width] - Ancho deseado
+     * @param {number} [options.height] - Alto deseado
+     * @param {string} [options.crop] - Tipo de crop ('fill', 'fit', etc.)
+     * @param {string} [options.quality='auto'] - Calidad de la imagen
+     * @returns {string} URL segura con transformaciones aplicadas
+     * 
+     * @example
+     * const url = fileService.getSecureUrl('profile_123', {
+     *   width: 200,
+     *   height: 200,
+     *   crop: 'fill'
+     * });
+     */
+    getSecureUrl(public_id, options = {}) {
+        const {
+            resource_type = 'image',
+            width,
+            height,
+            crop,
+            quality = 'auto'
+        } = options;
+
+        const transformations = [];
+        if (width) transformations.push({ width });
+        if (height) transformations.push({ height });
+        if (crop) transformations.push({ crop });
+        transformations.push({ quality });
+
+        return this.cloudinary.url(public_id, {
+            secure: true,
+            resource_type,
+            transformation: transformations
+        });
+    }
+
+    /**
+     * @method getMulterMiddleware
+     * @description Devuelve middleware Multer configurado
+     * @param {string} fieldName - Nombre del campo del formulario
+     * @param {Object} [options] - Opciones adicionales
+     * @param {number} [options.maxSize=50] - Tamaño máximo en MB
+     * @returns {Function} Middleware de Multer
+     */
+    getMulterMiddleware(fieldName, options = {}) {
+        const maxSizeMB = options.maxSize || 50;
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+        return multer({
+            storage: new CloudinaryStorage({
+                cloudinary,
+                params: (req, file) => {
+                    if (!file) {
+                        throw new AppError('No se proporcionó archivo', 400, 'NO_FILE_PROVIDED');
+                    }
+
+                    const baseParams = {
+                        folder: 'uvm-alumni/temp',
+                        allowed_formats: file.mimetype.startsWith('image/')
+                            ? ['jpg', 'jpeg', 'png', 'gif']
+                            : ['mp4', 'mov', 'avi'],
+                        resource_type: file.mimetype.startsWith('image/') ? 'image' : 'video',
+                        public_id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+                    };
+
+                    return file.mimetype.startsWith('image/')
+                        ? { ...baseParams, transformation: { quality: 'auto:good' } }
+                        : baseParams;
+                }
+            }),
+            limits: {
+                fileSize: maxSizeBytes,
+                files: 1
+            },
+            fileFilter: (req, file, cb) => {
+                // Verificar tamaño ANTES de procesar
+                if (file.size > maxSizeBytes) {
+                    return cb(new AppError(
+                        `El archivo excede el tamaño máximo de ${maxSizeMB}MB`,
+                        413,
+                        'FILE_TOO_LARGE',
+                        {
+                            fileName: file.originalname,
+                            fileSize: file.size,
+                            maxAllowed: maxSizeBytes
+                        }
+                    ));
+                }
+
+                this._fileFilter(req, file, cb);
+            }
+        }).single(fieldName);
+    }
+}

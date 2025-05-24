@@ -116,3 +116,22 @@
  *                   message: "Email ya registrado"
  *                   details: ["El email juan.perez@uvm.edu.ve ya existe"]
  */
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     FileUploadSuccess:
+ *       description: Archivo subido exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SuccessResponse'
+ *           examples:
+ *             profilePicture:
+ *               value:
+ *                 success: true
+ *                 data:
+ *                   profilePicture: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
+ *                   userId: "507f1f77bcf86cd799439011"
+ */

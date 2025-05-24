@@ -40,9 +40,9 @@ import { profileUpdateSchema } from '../schemas/userProfile.schemas.js';
  * const alumniRouter = alumniRoutes();
  * app.use('/api/alumni', alumniRouter);
  */
-export default function alumniRoutes() {
+export default function alumniRoutes(fileService) {
     const router = express.Router();
-    const alumniController = new AlumniController();
+    const alumniController = new AlumniController(fileService);
 
     /**
      * @swagger
@@ -253,6 +253,129 @@ export default function alumniRoutes() {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.patch('/update-profile', authenticate, validate(profileUpdateSchema), alumniController.updateProfile);
+
+    // /**
+    //  * @swagger
+    //  * /api/alumni/profile/picture:
+    //  *   patch:
+    //  *     summary: Actualizar foto de perfil
+    //  *     description: Sube una nueva foto de perfil (se redimensiona a 300x300px WebP)
+    //  *     tags: [Egresados]
+    //  *     security:
+    //  *       - bearerAuth: []
+    //  *     requestBody:
+    //  *       required: true
+    //  *       content:
+    //  *         multipart/form-data:
+    //  *           schema:
+    //  *             $ref: '#/components/schemas/ProfilePictureUpload'
+    //  *     responses:
+    //  *       200:
+    //  *         description: Foto actualizada
+    //  *         content:
+    //  *           application/json:
+    //  *             schema:
+    //  *               $ref: '#/components/schemas/ProfilePictureResponse'
+    //  *       400:
+    //  *         $ref: '#/components/responses/InvalidFileError'
+    //  */
+
+    /**
+     * @swagger
+     * /api/alumni/profile/picture:
+     *   patch:
+     *     summary: Actualizar foto de perfil del usuario
+     *     description: |
+     *       Permite al usuario autenticado actualizar su foto de perfil.
+     *       La imagen será:
+     *       - Redimensionada a 300x300px
+     *       - Convertida a formato WebP
+     *       - Optimizada para web
+     *       - Almacenada en Cloudinary con copia de seguridad
+     *     tags: [Egresados]
+     *     security:
+     *       - bearerAuth: []
+     *     consumes:
+     *       - multipart/form-data
+     *     parameters:
+     *       - in: header
+     *         name: Authorization
+     *         required: true
+     *         schema:
+     *           type: string
+     *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     *         description: Token JWT de acceso válido
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         multipart/form-data:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               picture:
+     *                 type: string
+     *                 format: binary
+     *                 description: |
+     *                   Archivo de imagen para la foto de perfil.
+     *                   Formatos soportados: JPG/JPEG, PNG, GIF.
+     *                   Tamaño máximo: 10MB.
+     *     responses:
+     *       200:
+     *         description: Foto de perfil actualizada exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SuccessResponse'
+     *             examples:
+     *               successResponse:
+     *                 $ref: '#/components/examples/ProfilePictureSuccess'
+     *       400:
+     *         description: |
+     *           Error en la solicitud. Posibles causas:
+     *           - No se proporcionó archivo
+     *           - Tipo de archivo no soportado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               invalidFileType:
+     *                 $ref: '#/components/examples/InvalidFileTypeError'
+     *               noFileProvided:
+     *                 $ref: '#/components/examples/NoFileProvidedError'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       413:
+     *         description: El archivo excede el tamaño máximo permitido (10MB)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               fileTooLarge:
+     *                 $ref: '#/components/examples/FileTooLargeError'
+     *       500:
+     *         description: Error interno del servidor al procesar la imagen
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               uploadError:
+     *                 $ref: '#/components/examples/ImageUploadError'
+     */
+    router.patch('/profile/picture',
+        authenticate,
+        fileService.getMulterMiddleware('picture', { maxSize: 10 }), // 10MB para imágenes
+        alumniController.updateProfilePicture
+    );
+
+    // Rutas para videos (prueba)
+    router.post('/content/video',
+        authenticate,
+        fileService.getMulterMiddleware('video', { maxSize: 50 }), // 50MB para videos
+        alumniController.uploadContentVideo
+    );
 
     return router;
 }

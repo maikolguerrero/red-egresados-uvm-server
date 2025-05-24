@@ -43,6 +43,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import nodemailer from 'nodemailer';
 import EmailService from './services/email.service.js';
+import FileService from './services/file.service.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
@@ -195,9 +196,15 @@ const transporter = nodemailer.createTransport({
 
 /**
  * @constant {EmailService} emailService
- * @description Instancia del servicio de email con transporter configurado
+ * @description Instancia del servicio de email con transporter y logger configurados
  */
 const emailService = new EmailService(transporter, logger);
+
+/**
+ * @constant {FileService} fileService
+ * @description Instancia del servicio de archivos con logger configurado
+ */
+const fileService = new FileService(logger);
 
 // Middlewares principales
 app.use(requestIdMiddleware); // Generar ID único para cada solicitud
@@ -222,7 +229,13 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
  * @see {@link ./routes/auth.routes.js}
  */
 app.use('/api/auth', authLimiter, authRoutes(emailService));
-app.use('/api/alumni', apiLimiter , alumniRoutes());
+
+/**
+ * @route /api/alumni
+ * @description Rutas de egresados con limitador de tasa específico
+ * @see {@link ./routes/alumni.routes.js}
+ */
+app.use('/api/alumni', apiLimiter , alumniRoutes(fileService));
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores

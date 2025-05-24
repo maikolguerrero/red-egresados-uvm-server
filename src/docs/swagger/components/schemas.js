@@ -14,7 +14,7 @@
  * 2. Registro de usuarios
  * 3. Manejo de errores
  * 4. Verificación de email
- * 5. Gestión de contraseñas
+ * 5. Gestión de contraseñas...
  */
 
 // =============================================
@@ -660,4 +660,73 @@
  *               credentialURL:
  *                 type: string
  *                 format: url
+ */
+
+// =============================================
+// Sección 9: Esquemas de Foto de Perfil
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProfilePictureData:
+ *       type: object
+ *       properties:
+ *         profilePicture:
+ *           type: string
+ *           format: uri
+ *           example: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
+ *           description: URL segura de la imagen en formato WebP
+ *         userId:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *           description: ID del usuario actualizado
+ */
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SuccessResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *           description: Indica si la operación fue exitosa
+ *         data:
+ *           type: object
+ *           description: Datos de respuesta específicos del endpoint
+ *           properties:
+ *             profilePicture:
+ *               type: string
+ *               format: uri
+ *               example: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
+ *               description: URL segura de la imagen en formato WebP
+ *             userId:
+ *               type: string
+ *               format: mongo-id
+ *               example: "507f1f77bcf86cd799439011"
+ *               description: ID del usuario actualizado
+ *       required:
+ *         - success
+ *         - data
+ * 
+ *     ProfilePictureResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/SuccessResponse'
+ *         - type: object
+ *           properties:
+ *             data:
+ *               type: object
+ *               properties:
+ *                 profilePicture:
+ *                   type: string
+ *                   format: uri
+ *                 userId:
+ *                   type: string
+ *                   format: mongo-id
+ *               required:
+ *                 - profilePicture
+ *                 - userId
  */
