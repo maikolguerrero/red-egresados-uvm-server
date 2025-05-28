@@ -254,57 +254,14 @@ export default function alumniRoutes(fileService) {
      */
     router.patch('/update-profile', authenticate, validate(profileUpdateSchema), alumniController.updateProfile);
 
-    // /**
-    //  * @swagger
-    //  * /api/alumni/profile/picture:
-    //  *   patch:
-    //  *     summary: Actualizar foto de perfil
-    //  *     description: Sube una nueva foto de perfil (se redimensiona a 300x300px WebP)
-    //  *     tags: [Egresados]
-    //  *     security:
-    //  *       - bearerAuth: []
-    //  *     requestBody:
-    //  *       required: true
-    //  *       content:
-    //  *         multipart/form-data:
-    //  *           schema:
-    //  *             $ref: '#/components/schemas/ProfilePictureUpload'
-    //  *     responses:
-    //  *       200:
-    //  *         description: Foto actualizada
-    //  *         content:
-    //  *           application/json:
-    //  *             schema:
-    //  *               $ref: '#/components/schemas/ProfilePictureResponse'
-    //  *       400:
-    //  *         $ref: '#/components/responses/InvalidFileError'
-    //  */
-
     /**
      * @swagger
      * /api/alumni/profile/picture:
      *   patch:
-     *     summary: Actualizar foto de perfil del usuario
-     *     description: |
-     *       Permite al usuario autenticado actualizar su foto de perfil.
-     *       La imagen será:
-     *       - Redimensionada a 300x300px
-     *       - Convertida a formato WebP
-     *       - Optimizada para web
-     *       - Almacenada en Cloudinary con copia de seguridad
+     *     summary: Actualizar foto de perfil
      *     tags: [Egresados]
      *     security:
      *       - bearerAuth: []
-     *     consumes:
-     *       - multipart/form-data
-     *     parameters:
-     *       - in: header
-     *         name: Authorization
-     *         required: true
-     *         schema:
-     *           type: string
-     *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-     *         description: Token JWT de acceso válido
      *     requestBody:
      *       required: true
      *       content:
@@ -315,66 +272,38 @@ export default function alumniRoutes(fileService) {
      *               picture:
      *                 type: string
      *                 format: binary
-     *                 description: |
-     *                   Archivo de imagen para la foto de perfil.
-     *                   Formatos soportados: JPG/JPEG, PNG, GIF.
-     *                   Tamaño máximo: 10MB.
+     *                 description: Imagen de perfil (JPEG/PNG, máx 10MB)
      *     responses:
      *       200:
-     *         description: Foto de perfil actualizada exitosamente
+     *         description: Foto de perfil actualizada
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/SuccessResponse'
+     *               $ref: '#/components/schemas/ProfilePictureResponse'
      *             examples:
-     *               successResponse:
-     *                 $ref: '#/components/examples/ProfilePictureSuccess'
+     *               success:
+     *                 value:
+     *                   success: true
+     *                   data:
+     *                     profilePicture: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
+     *                     publicId: "users/profile-pictures/abc123"
+     *                     dimensions:
+     *                       width: 300
+     *                       height: 300
+     *                     format: "webp"
+     *                     userId: "507f1f77bcf86cd799439011"
+     *                     updatedAt: "2025-05-27T07:30:45.000Z"
      *       400:
-     *         description: |
-     *           Error en la solicitud. Posibles causas:
-     *           - No se proporcionó archivo
-     *           - Tipo de archivo no soportado
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     *             examples:
-     *               invalidFileType:
-     *                 $ref: '#/components/examples/InvalidFileTypeError'
-     *               noFileProvided:
-     *                 $ref: '#/components/examples/NoFileProvidedError'
+     *         $ref: '#/components/responses/InvalidFileError'
      *       401:
      *         $ref: '#/components/responses/UnauthorizedError'
      *       413:
-     *         description: El archivo excede el tamaño máximo permitido (10MB)
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     *             examples:
-     *               fileTooLarge:
-     *                 $ref: '#/components/examples/FileTooLargeError'
-     *       500:
-     *         description: Error interno del servidor al procesar la imagen
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
-     *             examples:
-     *               uploadError:
-     *                 $ref: '#/components/examples/ImageUploadError'
+     *         $ref: '#/components/responses/FileTooLargeError'
      */
     router.patch('/profile/picture',
         authenticate,
-        fileService.getMulterMiddleware('picture', { maxSize: 10 }), // 10MB para imágenes
+        fileService.getValidationMiddleware('picture', { maxSize: 10 }),
         alumniController.updateProfilePicture
-    );
-
-    // Rutas para videos (prueba)
-    router.post('/content/video',
-        authenticate,
-        fileService.getMulterMiddleware('video', { maxSize: 50 }), // 50MB para videos
-        alumniController.uploadContentVideo
     );
 
     return router;

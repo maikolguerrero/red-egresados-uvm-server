@@ -53,6 +53,10 @@ export default class AlumniController {
             const limit = parseInt(req.query.limit) || 10;
             const skip = (page - 1) * limit;
 
+            req.logger.debug('Inicio búsqueda de egresados', {
+                ip: req.ip
+            });
+
             // Construir filtro para Alumni
             const alumniFilter = {
                 isRegistered: true,
@@ -98,6 +102,10 @@ export default class AlumniController {
                     .limit(limit)
                     .sort({ lastName: 1, firstName: 1 })
             ]);
+
+            req.logger.info('Búsqueda de egresados exitosa', {
+                ip: req.ip
+            });
 
             res.json({
                 success: true,
@@ -387,107 +395,102 @@ export default class AlumniController {
     /**
      * @method updateProfilePicture
      * @async
-     * @description Actualiza la foto de perfil de un usuario
+     * @description Actualiza la foto de perfil del usuario autenticado
      * @param {Object} req - Objeto de petición Express
      * @param {Object} res - Objeto de respuesta Express
      * @param {Function} next - Función para pasar al siguiente middleware
      * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
-     * 
-     * @example
-     * // PATCH /api/alumni/profile-picture
-     * // Header: Authorization: Bearer <token>
-     * // Body: Form-Data con campo 'picture' (archivo de imagen)
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si no se encuentra el perfil
+     *  - 500 si hay error al actualizar
      */
     updateProfilePicture = async (req, res, next) => {
         try {
             const { file } = req;
-            const userId = req.user.id; // ID del usuario autenticado
+            const userId = req.user.id;
 
-            // 1. Validar que se haya subido un archivo
-            if (!file) {
-                throw new AppError('No se proporcionó ninguna imagen', 400, 'NO_FILE_PROVIDED');
-            }
-
-            // 2. Eliminar imagen anterior si existe
-            const user = await User.findById(userId);
-            if (user?.profilePicturePublicId) {
-                await this.fileService.deleteFile(user.profilePicturePublicId);
-            }
-
-            // 3. Subir nueva imagen con transformaciones (300x300px formato WebP)
-            const uploadResult = await this.fileService.uploadImage(file, userId, {
-                width: 300,
-                height: 300,
-                crop: 'fill',
-                gravity: 'face', // Enfoca rostros en el recorte
-                quality: 'auto:best',
-                format: 'webp',
-                folder: 'users/profile-pictures'
+            req.logger.debug('Inicio actualización de foto de perfil', {
+                userId,
+                ip: req.ip
             });
 
-            if (!uploadResult.success) {
-                throw new AppError('Error al procesar la imagen', 500, 'UPLOAD_FAILED');
+            // 1. Validación ya realizada por el middleware
+            const user = await User.findById(userId);
+            if (!user) {
+                throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
             }
 
-            // 4. Actualizar registro del usuario
+            // 2. Convertir buffer a base64
+            const fileBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+            // 3. Eliminar imagen anterior si existe
+            if (user.profilePicture.publicId) {
+                await this.fileService.deleteFile(user.profilePicture.publicId);
+                req.logger.info('Imagen anterior eliminada', {
+                    action: 'updateProfilePicture',
+                    userId,
+                    publicId: user.profilePicture.publicId
+                });
+            }
+
+            // 4. Subir nueva imagen
+            const uploadResult = await this.fileService.uploadImage(
+                fileBase64,
+                userId,
+                {
+                    width: 300,
+                    height: 300,
+                    crop: 'fill',
+                    gravity: 'face',
+                    quality: 'auto:best',
+                    format: 'webp',
+                    folder: 'users/profile-pictures',
+                    originalName: file.originalname
+                }
+            );
+
+            if (!uploadResult.success) {
+                throw new AppError('Error al procesar la imagen', 500, 'UPLOAD_FAILED', {
+                    userId,
+                    errorDetails: uploadResult.error
+                });
+            }
+
+            const newProfilePicture = {
+                url: uploadResult.url,
+                publicId: uploadResult.publicId,
+                format: uploadResult.format,
+                dimensions: {
+                    width: uploadResult.width,
+                    height: uploadResult.height
+                }
+            };
+
+            // 5. Actualizar usuario
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 {
-                    profilePicture: uploadResult.url,
-                    profilePicturePublicId: uploadResult.publicId
+                    profilePicture: newProfilePicture
                 },
                 { new: true, runValidators: true }
             ).select('-__v -password -verificationToken -resetPasswordToken');
 
-            // 5. Responder con la nueva URL
+            req.logger.info('Foto de perfil actualizada', {
+                action: 'updateProfilePicture',
+                userId,
+                newPublicId: uploadResult.publicId
+            });
+
+            // 6. Respuesta mejorada
             res.status(200).json({
                 success: true,
                 data: {
-                    profilePicture: updatedUser.profilePicture,
-                    userId: updatedUser._id
+                    profilePicture: newProfilePicture
                 }
             });
 
         } catch (error) {
             next(error);
         }
-    }
-
-    // Subir video de contenido (prueba)
-    uploadContentVideo = async (req, res, next) => {
-        try {
-            const { width = 1280, height = 720, format = 'mp4' } = req.body;
-
-            if (!req.file) {
-                throw new AppError('No se proporcionó video', 400, 'NO_VIDEO');
-            }
-
-            const result = await this.fileService.uploadVideo(req.file, req.user.id, {
-                width: parseInt(width),
-                height: parseInt(height),
-                format,
-                folder: 'content-videos',
-                quality: 'auto:good'
-            });
-
-            if (!result.success) {
-                throw new AppError('Error al procesar video', 500, 'UPLOAD_ERROR');
-            }
-
-            res.json({
-                success: true,
-                data: {
-                    videoUrl: result.url,
-                    duration: result.duration,
-                    dimensions: {
-                        width: result.width,
-                        height: result.height
-                    },
-                    format: result.format
-                }
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
+    };
 }

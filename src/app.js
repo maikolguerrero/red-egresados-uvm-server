@@ -12,6 +12,8 @@
  * @requires ./middlewares/errorHandler
  * @requires ./middlewares/requestId
  * @requires ./routes/auth.routes
+ * @requires ./routes/alumni.routes
+ * @requires ./routes/event.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -48,6 +50,7 @@ import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
 import alumniRoutes from './routes/alumni.routes.js';
+import eventRoutes from './routes/event.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -236,6 +239,14 @@ app.use('/api/auth', authLimiter, authRoutes(emailService));
  * @see {@link ./routes/alumni.routes.js}
  */
 app.use('/api/alumni', apiLimiter , alumniRoutes(fileService));
+
+/**
+ * @route /api/events
+ * @description Rutas de eventos con limitador de tasa específico
+ * @see {@link ./routes/event.routes.js}
+ */
+app.use('/api/events', apiLimiter, eventRoutes(fileService));
+
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores

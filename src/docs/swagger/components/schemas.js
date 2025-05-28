@@ -14,7 +14,9 @@
  * 2. Registro de usuarios
  * 3. Manejo de errores
  * 4. Verificación de email
- * 5. Gestión de contraseñas...
+ * 5. Gestión de contraseñas
+ * 6. Gestión de egresados
+ * 7. Manejo de eventos
  */
 
 // =============================================
@@ -711,7 +713,7 @@
  *       required:
  *         - success
  *         - data
- * 
+ *
  *     ProfilePictureResponse:
  *       allOf:
  *         - $ref: '#/components/schemas/SuccessResponse'
@@ -729,4 +731,404 @@
  *               required:
  *                 - profilePicture
  *                 - userId
+ */
+
+// =============================================
+// Sección 10: Esquemas de Eventos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserBasic:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         username:
+ *           type: string
+ *         email:
+ *           type: string
+ *         profilePicture:
+ *           type: string
+ *           format: uri
+ *           nullable: true
+ *
+ *     Pagination:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           example: 100
+ *         page:
+ *           type: integer
+ *           example: 1
+ *         pages:
+ *           type: integer
+ *           example: 10
+ *         limit:
+ *           type: integer
+ *           example: 10
+ *
+ *     EventMediaItem:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         url:
+ *           type: string
+ *           format: uri
+ *         publicId:
+ *           type: string
+ *         uploadedBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         uploadedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     EventRequest:
+ *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *         - eventType
+ *         - startDate
+ *         - endDate
+ *         - location
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 100
+ *           example: "Conferencia de Inteligencia Artificial"
+ *         description:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 2000
+ *           example: "Evento anual sobre los últimos avances en IA aplicada a la educación"
+ *         eventType:
+ *           type: string
+ *           enum: [conferencia, taller, seminario, social, networking, otros]
+ *           example: "conferencia"
+ *         startDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T09:00:00Z"
+ *         endDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T13:00:00Z"
+ *         location:
+ *           type: string
+ *           example: "Auditorio Principal UVM, Valera"
+ *         virtualLink:
+ *           type: string
+ *           format: uri
+ *           nullable: true
+ *           example: "https://zoom.us/j/1234567890"
+ *         organizers:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Pedro Rodríguez", "Juan Pérez"]
+ *         specialGuests:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Invitado 1", "Invitado 2"]
+ *         capacity:
+ *           type: integer
+ *           minimum: 1
+ *           example: 150
+ *         certificate:
+ *           type: boolean
+ *           example: true
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["tecnología", "educación"]
+ * 
+ *     EventUpdateRequest:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 3
+ *           maxLength: 100
+ *           example: "Conferencia de Inteligencia Artificial"
+ *           nullable: true
+ *         description:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 2000
+ *           example: "Evento anual sobre los últimos avances en IA aplicada a la educación"
+ *           nullable: true
+ *         eventType:
+ *           type: string
+ *           enum: [conferencia, taller, seminario, social, networking, otros]
+ *           example: "conferencia"
+ *           nullable: true
+ *         startDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T09:00:00Z"
+ *           nullable: true
+ *         endDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T13:00:00Z"
+ *           nullable: true
+ *         location:
+ *           type: string
+ *           example: "Auditorio Principal UVM, Valera"
+ *           nullable: true
+ *         virtualLink:
+ *           type: string
+ *           format: uri
+ *           example: "https://zoom.us/j/1234567890?pwd=UVMEgresados"
+ *           nullable: true
+ *         organizers:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: ["Pedro Rodríguez", "Juan Pérez"]
+ *           nullable: true
+ *         specialGuests:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: ["Invitado 1", "Invitado 2"]
+ *           nullable: true
+ *         capacity:
+ *           type: integer
+ *           minimum: 1
+ *           nullable: true
+ *         certificate:
+ *           type: boolean
+ *           example: true
+ *           nullable: true
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *           nullable: true
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: ["tecnología", "educación"]
+ *           nullable: true
+ * 
+ *     EventResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/SuccessResponse'
+ *         - type: object
+ *           properties:
+ *             data:
+ *               $ref: '#/components/schemas/Event'
+ * 
+ *     Event:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "6834c5a7ce256a0130c9b2cc"
+ *         title:
+ *           type: string
+ *           example: "Conferencia de Inteligencia Artificial"
+ *         description:
+ *           type: string
+ *           example: "Evento anual sobre los últimos avances en IA aplicada a la educación"
+ *         eventType:
+ *           type: string
+ *           example: "conferencia"
+ *         startDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T09:00:00.000Z"
+ *         endDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-08-15T13:00:00.000Z"
+ *         location:
+ *           type: string
+ *           example: "Auditorio Principal UVM, Valera"
+ *         virtualLink:
+ *           type: string
+ *           example: "https://zoom.us/j/1234567890?pwd=UVMEgresados"
+ *         organizers:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Pedro Rodríguez", "Juan Pérez"]
+ *         specialGuests:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["Invitado 1", "Invitado 2"]
+ *         createdBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         attendees:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/UserBasic'
+ *         capacity:
+ *           type: integer
+ *           example: 150
+ *         certificate:
+ *           type: boolean
+ *           example: true
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["tecnología", "educación"]
+ *         media:
+ *           $ref: '#/components/schemas/EventMedia'
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-26T19:48:55.938Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-27T16:33:57.484Z"
+ * 
+ *     EventMedia:
+ *       type: object
+ *       properties:
+ *         images:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/EventImage'
+ *         videos:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/EventVideo'
+ * 
+ *     EventImage:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "6835e9314eeeccaa5ff6629a"
+ *         url:
+ *           type: string
+ *           format: uri
+ *           example: "https://res.cloudinary.com/dawmvdyoz/image/upload/v1748363568/uvm-alumni/events/images/event-6834c5a7ce256a0130c9b2cc/img_event-6834c5a7ce256a0130c9b2cc_1748363567369.webp"
+ *         publicId:
+ *           type: string
+ *           example: "uvm-alumni/events/images/event-6834c5a7ce256a0130c9b2cc/img_event-6834c5a7ce256a0130c9b2cc_1748363567369"
+ *         format:
+ *           type: string
+ *           example: "webp"
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             width:
+ *               type: integer
+ *               example: 1200
+ *             height:
+ *               type: integer
+ *               example: 630
+ *         uploadedBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         uploadedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-27T16:32:49.379Z"
+ * 
+ *     EventVideo:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "6835e95d4eeeccaa5ff662a4"
+ *         url:
+ *           type: string
+ *           format: uri
+ *           example: "https://res.cloudinary.com/dawmvdyoz/video/upload/v1748363609/uvm-alumni/events/videos/event-6834c5a7ce256a0130c9b2cc/vid_event-6834c5a7ce256a0130c9b2cc_1748363607628.mp4"
+ *         publicId:
+ *           type: string
+ *           example: "uvm-alumni/events/videos/event-6834c5a7ce256a0130c9b2cc/vid_event-6834c5a7ce256a0130c9b2cc_1748363607628"
+ *         duration:
+ *           type: number
+ *           format: float
+ *           example: 13.802993
+ *         format:
+ *           type: string
+ *           example: "mp4"
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             width:
+ *               type: integer
+ *               example: 1280
+ *             height:
+ *               type: integer
+ *               example: 720
+ *         uploadedBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         uploadedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-27T16:33:33.226Z"
+ * 
+ *     EventListResponse:
+ *       properties:
+ *             data:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Event'
+ *             pagination:
+ *               $ref: '#/components/schemas/Pagination'
+ * 
+ *     EventMediaResponse:
+ *           properties:
+ *             data:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/EventImage'
+ *                 - $ref: '#/components/schemas/EventVideo'
+ * 
+ *     EventDeletionResponse:
+ *           properties:
+ *             data:
+ *               type: object
+ *               properties:
+ *                 deletedEventId:
+ *                   type: string
+ *                   format: mongo-id
+ *                   example: "6834c5a7ce256a0130c9b2cc"
+ *                 deletedMediaCount:
+ *                   type: integer
+ *                   example: 3
+ * 
+ *     MediaDeletionResponse:
+ *           properties:
+ *             data:
+ *               type: object
+ *               properties:
+ *                 deletedMediaId:
+ *                   type: string
+ *                   format: mongo-id
+ *                   example: "6835e95d4eeeccaa5ff662a4"
+ *                 remainingCount:
+ *                   type: integer
+ *                   example: 2
  */

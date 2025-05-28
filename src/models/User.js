@@ -22,6 +22,14 @@ import mongoose from 'mongoose';
  * @property {string} email - Email institucional (validado por regex)
  * @property {string} password - Hash bcrypt de la contraseña
  * @property {'egresado'|'admin'} role - Rol del sistema
+ * @property {Object} profilePicture - Información de la foto de perfil
+ * @property {string} profilePicture.url - URL de la foto de perfil
+ * @property {string} profilePicture.publicId - ID público de la foto de perfil
+ * @property {string} profilePicture.format - Formato de la foto de perfil
+ * @property {Object} profilePicture.dimensions - Dimensiones de la foto de perfil
+ * @property {number} profilePicture.dimensions.width - Ancho de la foto de perfil
+ * @property {number} profilePicture.dimensions.height - Alto de la foto de perfil
+ * @property {Date} profilePicture.uploadedAt - Fecha de subida de la foto de perfil
  * @property {boolean} isVerified - Indica si el email fue verificado
  * @property {boolean} isActive - Indica si la cuenta está habilitada
  * @property {Date} lastLogin - Fecha del último acceso
@@ -113,12 +121,23 @@ const UserSchema = new mongoose.Schema({
         required: true
     },
     profilePicture: {
-        type: String,
-        default: null
-    },
-    profilePicturePublicId: {
-        type: String,
-        default: null
+        url: {
+            type: String,
+            default: null
+        },
+        publicId: {
+            type: String,
+            default: null
+        },
+        format: String,
+        dimensions: {
+            width: Number,
+            height: Number
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now
+        }
     },
 
     /**

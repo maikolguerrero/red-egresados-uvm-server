@@ -1,10 +1,10 @@
 /**
- * @fileoverview Componentes de ejemplos para la documentación Swagger
- * @module docs/swagger/components/examples
+ * @fileoverview Componentes de respuestas para la documentación Swagger
+ * @module docs/swagger/components/responses
  * @description
- * Este archivo contiene ejemplos estructurados de respuestas de error y éxito
+ * Este archivo contiene respuestas estructuradas de error y éxito
  * que pueden ser reutilizados en múltiples endpoints de la API.
- * 
+ *
  * Los ejemplos siguen el estándar OpenAPI 3.0 y se organizan por categorías:
  * - Errores de validación
  * - Errores de autenticación
@@ -43,7 +43,7 @@
  *                   message: "Token inválido"
  *                   details: ["El token proporcionado no es válido o ha expirado"]
  *                   timestamp: "2024-05-03T12:01:30Z"
- * 
+ *
  *     ValidationError:
  *       description: Error en validación de datos de entrada
  *       content:
@@ -81,7 +81,7 @@
  *                       message: "Debe ser email institucional (@uvm.edu.ve)"
  *                     - field: "password"
  *                       message: "Debe contener mayúsculas, números y símbolos"
- * 
+ *
  *     ForbiddenError:
  *       description: |
  *         **Acceso denegado**:
@@ -100,7 +100,7 @@
  *                   message: "Acceso restringido a administradores"
  *                   details: ["Requiere rol 'admin'"]
  *                   timestamp: "2024-05-03T12:05:45Z"
- * 
+ *
  *     ConflictError:
  *       description: Conflicto de datos
  *       content:
@@ -115,6 +115,30 @@
  *                   code: "USER_409"
  *                   message: "Email ya registrado"
  *                   details: ["El email juan.perez@uvm.edu.ve ya existe"]
+ */
+
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     ServerError:
+ *       description: Error interno del servidor
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             default:
+ *               value:
+ *                 success: false
+ *                 requestId: "45c1b575-910b-4c1a-9750-04c807a27e21"
+ *                 message: "Error interno del servidor"
+ *                 error:
+ *                   code: "SERVER_500"
+ *                   message: "Ocurrió un error inesperado"
+ *                   details: ["Error al procesar la solicitud"]
+ *                   timestamp: "2025-05-28T16:45:30Z"
  */
 
 /**
@@ -134,4 +158,77 @@
  *                 data:
  *                   profilePicture: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
  *                   userId: "507f1f77bcf86cd799439011"
+ */
+
+// =============================================
+// Sección 10: Respuestas de Eventos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     EventSuccess:
+ *       description: Operación con evento exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EventResponse'
+ * 
+ *     EventListSuccess:
+ *       description: Lista de eventos obtenida exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EventListResponse'
+ * 
+ *     EventMediaSuccess:
+ *       description: Operación con medios de evento exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EventMediaResponse'
+ * 
+ *     EventDeleted:
+ *       description: Evento eliminado exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EventDeletionResponse'
+ * 
+ *     MediaDeleted:
+ *       description: Medio eliminado exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MediaDeletionResponse'
+ * 
+ *     EventNotFound:
+ *       description: Evento no encontrado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "EVENT_404"
+ *                   message: "Evento no encontrado"
+ *                   details: ["No se encontró el evento con ID 507f1f77bcf86cd799439011"]
+ * 
+ *     MediaNotFound:
+ *       description: Medio no encontrado en el evento
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "MEDIA_404"
+ *                   message: "Medio no encontrado"
+ *                   details: ["La imagen/video solicitado no existe en este evento"]
  */

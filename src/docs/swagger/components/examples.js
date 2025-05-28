@@ -77,3 +77,72 @@
  *           details: ["Error en el servidor de almacenamiento"]
  *           timestamp: "2024-05-03T12:18:00Z"
  */
+
+// =============================================
+// Sección 10: Ejemplos de Eventos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   examples:
+ *     EventCreated:
+ *       summary: Ejemplo de evento creado
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/Event'
+ * 
+ *     EventList:
+ *       summary: Ejemplo de lista de eventos
+ *       value:
+ *         success: true
+ *         data:
+ *           - $ref: '#/components/schemas/Event'
+ *           - $ref: '#/components/schemas/Event'
+ *         pagination:
+ *           total: 25
+ *           page: 1
+ *           pages: 3
+ *           limit: 10
+ * 
+ *     EventImageAdded:
+ *       summary: Ejemplo de imagen añadida
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/EventImage'
+ * 
+ *     EventVideoAdded:
+ *       summary: Ejemplo de video añadido
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/EventVideo'
+ * 
+ *     EventDeleted:
+ *       summary: Ejemplo de evento eliminado
+ *       value:
+ *         success: true
+ *         message: "Evento eliminado correctamente"
+ *         data:
+ *           deletedEventId: "507f1f77bcf86cd799439011"
+ *           deletedMediaCount: 3
+ * 
+ *     EventImageDeleted:
+ *       summary: Ejemplo de imagen eliminada
+ *       value:
+ *         success: true
+ *         message: "Imagen eliminada correctamente"
+ *         data:
+ *           deletedImageId: "507f1f77bcf86cd799439012"
+ *           remainingImages: 2
+ * 
+ *     EventVideoDeleted:
+ *       summary: Ejemplo de video eliminado
+ *       value:
+ *         success: true
+ *         message: "Video eliminado correctamente"
+ *         data:
+ *           deletedVideoId: "507f1f77bcf86cd799439013"
+ *           remainingVideos: 1
+ */

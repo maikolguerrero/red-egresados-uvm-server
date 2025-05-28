@@ -5,6 +5,7 @@
  * @requires multer
  * @requires multer-storage-cloudinary
  * @requires dotenv
+ * @requires AppError
  * 
  * @description
  * Versión mejorada con:
@@ -18,6 +19,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import AppError from '../middlewares/AppError.js';
 
 dotenv.config();
 
@@ -80,29 +82,31 @@ export default class FileService {
      * @param {Object} options - Opciones de configuración
      * @param {number} [options.width] - Ancho deseado
      * @param {number} [options.height] - Alto deseado
-     * @param {string} [options.crop='limit'] - Tipo de recorte
      * @param {string} [options.folder='profile'] - Carpeta de destino
      * @param {string} [options.quality='auto:good'] - Calidad de compresión
-     * @param {string} [options.format='auto'] - Formato de salida
+     * @param {string} [options.format='webp'] - Formato de salida
      * @returns {Promise<Object>} Resultado de la subida
      * 
      * @example
-     * // Subir avatar con dimensiones específicas
-     * await fileService.uploadImage(file, userId, {
-     *   width: 300,
-     *   height: 300,
-     *   crop: 'fill',
-     *   folder: 'avatars'
+     * // Subir imagen con configuración personalizada
+     * await fileService.uploadImage(fileBase64, userId, {
+     *   width: 1280,
+     *   height: 720,
+     *   folder: 'profile',
+     *   format: 'webp',
+     *   originalName: 'aniversario',
      * });
      */
-    async uploadImage(file, userId, options = {}) {
+    async uploadImage(fileBase64, userId, options = {}) {
         const {
             width,
             height,
             crop = 'limit',
             folder = 'profile',
             quality = 'auto:good',
-            format = 'auto'
+            format = 'webp',
+            originalName = 'unknown',
+            resource_type = 'image'
         } = options;
 
         const publicId = `img_${userId}_${Date.now()}`;
@@ -112,18 +116,19 @@ export default class FileService {
             action: 'uploadImage',
             userId,
             options,
-            originalName: file.originalname
+            originalName
         });
 
         try {
-            const result = await this.cloudinary.uploader.upload(file.path, {
+            const result = await this.cloudinary.uploader.upload(fileBase64, {
                 public_id: publicId,
                 folder: uploadPath,
                 transformation: [
                     { width, height, crop, quality, format },
                     { fetch_format: format }
                 ],
-                overwrite: true
+                overwrite: true,
+                resource_type: resource_type
             });
 
             this.logger.info('Imagen subida exitosamente', {
@@ -147,9 +152,8 @@ export default class FileService {
                 'IMAGE_UPLOAD_FAILED',
                 {
                     userId,
-                    originalName: file.originalname,
-                    size: file.size,
-                    mimeType: file.mimetype
+                    originalName,
+                    errorDetails: error.message
                 }
             );
         }
@@ -172,21 +176,25 @@ export default class FileService {
      * 
      * @example
      * // Subir video con configuración personalizada
-     * await fileService.uploadVideo(file, userId, {
+     * await fileService.uploadVideo(fileBase64, userId, {
      *   width: 1280,
      *   height: 720,
      *   folder: 'presentations',
-     *   format: 'webm'
+     *   format: 'webm',
+     *   audio: true,
+     *   originalName: 'aniversario',
      * });
      */
-    async uploadVideo(file, userId, options = {}) {
+    async uploadVideo(fileBase64, userId, options = {}) {
         const {
             width,
             height,
             folder = 'videos',
             quality = 'auto:good',
             format = 'mp4',
-            audio = true
+            audio = true,
+            originalName = 'unknown',
+            resource_type = 'video'
         } = options;
 
         const publicId = `vid_${userId}_${Date.now()}`;
@@ -196,13 +204,12 @@ export default class FileService {
             action: 'uploadVideo',
             userId,
             options,
-            originalName: file.originalname,
-            size: file.size
+            originalName
         });
 
         try {
-            const result = await this.cloudinary.uploader.upload(file.path, {
-                resource_type: 'video',
+            const result = await this.cloudinary.uploader.upload(fileBase64, {
+                resource_type: resource_type,
                 public_id: publicId,
                 folder: uploadPath,
                 transformation: [
@@ -230,11 +237,16 @@ export default class FileService {
                 height: result.height
             };
         } catch (error) {
-            this.logger.error('Error al subir video', {
-                action: 'uploadVideo',
-                error: error.message
-            });
-            return { success: false, error: error.message };
+            throw new AppError(
+                'Error al subir el video',
+                500,
+                'VIDEO_UPLOAD_FAILED',
+                {
+                    userId,
+                    originalName,
+                    errorDetails: error.message
+                }
+            );
         }
     }
 
@@ -329,45 +341,25 @@ export default class FileService {
     }
 
     /**
-     * @method getMulterMiddleware
-     * @description Devuelve middleware Multer configurado
+     * @method getValidationMiddleware
+     * @description Devuelve middleware Multer configurado solo para validación
      * @param {string} fieldName - Nombre del campo del formulario
      * @param {Object} [options] - Opciones adicionales
      * @param {number} [options.maxSize=50] - Tamaño máximo en MB
-     * @returns {Function} Middleware de Multer
+     * @returns {Function} Middleware de Multer para validación
      */
-    getMulterMiddleware(fieldName, options = {}) {
+    getValidationMiddleware(fieldName, options = {}) {
         const maxSizeMB = options.maxSize || 50;
         const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
         return multer({
-            storage: new CloudinaryStorage({
-                cloudinary,
-                params: (req, file) => {
-                    if (!file) {
-                        throw new AppError('No se proporcionó archivo', 400, 'NO_FILE_PROVIDED');
-                    }
-
-                    const baseParams = {
-                        folder: 'uvm-alumni/temp',
-                        allowed_formats: file.mimetype.startsWith('image/')
-                            ? ['jpg', 'jpeg', 'png', 'gif']
-                            : ['mp4', 'mov', 'avi'],
-                        resource_type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-                        public_id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-                    };
-
-                    return file.mimetype.startsWith('image/')
-                        ? { ...baseParams, transformation: { quality: 'auto:good' } }
-                        : baseParams;
-                }
-            }),
+            storage: multer.memoryStorage(), // Almacena en memoria sin subir
             limits: {
                 fileSize: maxSizeBytes,
                 files: 1
             },
             fileFilter: (req, file, cb) => {
-                // Verificar tamaño ANTES de procesar
+                // Verificar tamaño
                 if (file.size > maxSizeBytes) {
                     return cb(new AppError(
                         `El archivo excede el tamaño máximo de ${maxSizeMB}MB`,
@@ -381,7 +373,24 @@ export default class FileService {
                     ));
                 }
 
-                this._fileFilter(req, file, cb);
+                // Verificar tipo de archivo
+                const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+                const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+
+                if (!allowedTypes.includes(file.mimetype)) {
+                    return cb(new AppError(
+                        'Tipo de archivo no permitido',
+                        400,
+                        'INVALID_FILE_TYPE',
+                        {
+                            mimeType: file.mimetype,
+                            allowedTypes
+                        }
+                    ));
+                }
+
+                cb(null, true);
             }
         }).single(fieldName);
     }
