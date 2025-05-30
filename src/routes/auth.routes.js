@@ -172,6 +172,28 @@ export default function authRoutes(emailService) {
 
     /**
      * @swagger
+     * /api/auth/check-session:
+     *   get:
+     *     summary: Verifica si hay una sesión activa
+     *     tags: [Autenticación]
+     *     responses:
+     *       200:
+     *         description: Sesión válida
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 isAuthenticated:
+     *                   type: boolean
+     *                   example: true
+     *       401:
+     *         description: No autenticado
+     */
+    router.get('/check-session', authenticate, authController.checkSession);
+
+    /**
+     * @swagger
      * /api/auth/refresh-token:
      *   post:
      *     summary: Renovar tokens de acceso

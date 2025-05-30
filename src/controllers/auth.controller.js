@@ -905,6 +905,30 @@ export default class AuthController {
      * @async
      * @description Maneja la solicitud de restablecimiento de contraseña
      * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, siempre envía éxito (por seguridad)
+     * @throws {AppError} Con errores específicos:
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
+     */
+    checkSession = (req, res) => {
+        res.json({
+            success: true,
+            requestId: req.requestId,
+            message: 'Sesión válida',
+            user: {
+                id: req.user.id,
+                username: req.user.username,
+                role: req.user.role
+            }
+        });
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Maneja la solicitud de restablecimiento de contraseña
+     * @param {Object} req - Objeto de petición Express
      * @param {string} req.body.emailOrUsername - Email o nombre de usuario
      * @param {Object} res - Objeto de respuesta Express
      * @param {Function} next - Función para pasar al siguiente middleware

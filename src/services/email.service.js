@@ -83,7 +83,7 @@ export default class EmailService {
      * }
      */
     async sendVerificationEmail(email, token) {
-        const verificationUrl = `${process.env.BASE_URL}/api/auth/verify-email?token=${token}`;
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
         this.logger.info('Enviando email de verificación', { email, action: 'sendVerification' });
 
         try {
@@ -131,7 +131,7 @@ export default class EmailService {
      * }
      */
     async sendPasswordResetEmail(email, token) {
-        const resetUrl = `${process.env.BASE_URL}/api/auth/reset-password?token=${token}`;
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
         this.logger.info('Enviando email de recuperación', { email, action: 'sendPasswordReset' });
 
         try {
