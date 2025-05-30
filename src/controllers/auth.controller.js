@@ -876,7 +876,7 @@ export default class AuthController {
             const cookieOptions = {
                 httpOnly: true,
                 secure: isProduction,
-                sameSite: 'none',
+                sameSite: 'lax',
                 domain: isProduction ? process.env.DOMAIN : undefined,
                 path: '/'
             };
