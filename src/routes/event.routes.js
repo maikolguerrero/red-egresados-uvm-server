@@ -54,6 +54,19 @@ export default function eventRoutes(fileService) {
      *           enum: [conferencia, taller, seminario, social, networking, otros]
      *         description: Tipo de evento a filtrar
      *       - in: query
+     *         name: tags
+     *         description: Tags para filtrar (separados por comas). Coincide parcialmente y es case-insensitive.
+     *         schema:
+     *           type: string
+     *           example: "tecnologia,empleo"
+     *       - in: query
+     *         name: tagMatch
+     *         description: Tipo de coincidencia para los tags (any = al menos un tag, all = todos los tags)
+     *         schema:
+     *           type: string
+     *           enum: [any, all]
+     *           default: any
+     *       - in: query
      *         name: search
      *         schema:
      *           type: string
@@ -278,40 +291,41 @@ export default function eventRoutes(fileService) {
         authenticate,
         authorize('admin'),
         validateParams(eventIdSchema),
-    eventController.removeEventImage);
+        eventController.removeEventImage
+    );
 
-  /**
-    * @swagger
-    * /api/events/{id}/media/videos/{videoId}:
-    *   delete:
-    *     summary: Eliminar video del evento
-    *     description: Elimina un video específico asociado al evento
-    *     tags: [Eventos]
-    *     security:
-    *       - bearerAuth: []
-    *     parameters:
-    *       - $ref: '#/components/parameters/eventId'
-    *       - in: path
-    *         name: videoId
-    *         required: true
-    *         schema:
-    *           type: string
-    *           format: mongo-id
-    *         description: ID del video a eliminar
-    *     responses:
-    *       200:
-    *         $ref: '#/components/responses/MediaDeleted'
-    *       401:
-    *         $ref: '#/components/responses/UnauthorizedError'
-    *       403:
-    *         $ref: '#/components/responses/ForbiddenError'
-    *       404:
-    *         oneOf:
-    *           - $ref: '#/components/responses/EventNotFound'
-    *           - $ref: '#/components/responses/MediaNotFound'
-    *       500:
-    *         $ref: '#/components/responses/ServerError'
-    */
+    /**
+      * @swagger
+      * /api/events/{id}/media/videos/{videoId}:
+      *   delete:
+      *     summary: Eliminar video del evento
+      *     description: Elimina un video específico asociado al evento
+      *     tags: [Eventos]
+      *     security:
+      *       - bearerAuth: []
+      *     parameters:
+      *       - $ref: '#/components/parameters/eventId'
+      *       - in: path
+      *         name: videoId
+      *         required: true
+      *         schema:
+      *           type: string
+      *           format: mongo-id
+      *         description: ID del video a eliminar
+      *     responses:
+      *       200:
+      *         $ref: '#/components/responses/MediaDeleted'
+      *       401:
+      *         $ref: '#/components/responses/UnauthorizedError'
+      *       403:
+      *         $ref: '#/components/responses/ForbiddenError'
+      *       404:
+      *         oneOf:
+      *           - $ref: '#/components/responses/EventNotFound'
+      *           - $ref: '#/components/responses/MediaNotFound'
+      *       500:
+      *         $ref: '#/components/responses/ServerError'
+      */
     router.delete('/:id/media/videos/:videoId',
         authenticate,
         authorize('admin'),
@@ -405,7 +419,7 @@ export default function eventRoutes(fileService) {
      *       404:
      *         description: Evento no encontrado
    */
-  router.delete('/:id/unsave', authenticate, validateParams(eventIdSchema), eventController.unsaveEventForUser);
+    router.delete('/:id/unsave', authenticate, validateParams(eventIdSchema), eventController.unsaveEventForUser);
 
-  return router;
+    return router;
 }

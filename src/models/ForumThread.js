@@ -25,20 +25,20 @@ const ForumThreadSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
-    media: {
-        type: {
-            url: String,
-            publicId: String,
-            mediaType: {
-                type: String,
-                enum: ['image', 'video']
-            },
-            width: Number,
-            height: Number,
-            duration: Number // Solo para videos
+    media: [{
+        mediaType: {
+            type: String,
+            enum: ['image', 'video']
         },
-        required: false
-    },
+        url: String,
+        publicId: String,
+        duration: Number, // en segundos
+        format: String,
+        dimensions: {
+            width: Number,
+            height: Number
+        }
+    }],
     tags: [{
         type: String,
         maxlength: [20, 'Cada tag no puede exceder 20 caracteres']
@@ -56,6 +56,14 @@ const ForumThreadSchema = new mongoose.Schema({
             delete ret._id;
             delete ret.__v;
             ret.likeCount = ret.likes ? ret.likes.length : 0;
+
+            // Transformación anidada para imágenes
+            if (ret.media) {
+                ret.media = ret.media.map(image => {
+                    const { _id, ...rest } = image;
+                    return { id: _id, ...rest };
+                });
+            }
             return ret;
         }
     },
@@ -66,6 +74,14 @@ const ForumThreadSchema = new mongoose.Schema({
             delete ret._id;
             delete ret.__v;
             ret.likeCount = ret.likes ? ret.likes.length : 0;
+
+            // Transformación anidada para imágenes
+            if (ret.media) {
+                ret.media = ret.media.map(image => {
+                    const { _id, ...rest } = image;
+                    return { id: _id, ...rest };
+                });
+            }
             return ret;
         }
     }
@@ -79,5 +95,7 @@ ForumThreadSchema.virtual('comments', {
 });
 
 ForumThreadSchema.index({ title: 'text', content: 'text' });
+ForumThreadSchema.index({ category: 1 });
+ForumThreadSchema.index({ tags: 1 });
 
 export default mongoose.model('ForumThread', ForumThreadSchema);

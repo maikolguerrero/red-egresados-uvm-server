@@ -51,11 +51,6 @@ const baseEventSchema = {
 // Esquema para creación
 export const eventCreateSchema = yup.object().shape({
     ...baseEventSchema,
-    // Campos adicionales específicos para creación
-    media: yup.object().shape({
-        images: yup.array().max(10, 'Máximo 10 imágenes'),
-        videos: yup.array().max(5, 'Máximo 5 videos')
-    })
 });
 
 // Esquema para actualización (más flexible)
@@ -93,10 +88,6 @@ export const eventUpdateSchema = yup.object().shape({
     certificate: yup.boolean().optional(),
     tags: baseEventSchema.tags.optional(),
     isActive: yup.boolean().optional(),
-    media: yup.object().shape({
-        images: yup.array().max(10, 'Máximo 10 imágenes').optional(),
-        videos: yup.array().max(5, 'Máximo 5 videos').optional()
-    }).optional()
 });
 
 // Esquema para filtros de búsqueda
@@ -112,6 +103,12 @@ export const eventQuerySchema = yup.object().shape({
         .oneOf(['conferencia', 'taller', 'seminario', 'social', 'networking', 'otros', undefined]),
     search: yup.string()
         .max(100, 'La búsqueda no puede exceder 100 caracteres'),
+    tags: yup.string()
+        .min(2, 'Cada tag debe tener al menos 2 caracteres')
+        .optional(),
+    tagMatch: yup.string()
+        .oneOf(['all', 'any', undefined])
+        .default('any'),
     upcoming: yup.boolean()
 });
 

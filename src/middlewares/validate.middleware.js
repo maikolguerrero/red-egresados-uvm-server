@@ -44,17 +44,33 @@ import AppError from './AppError.js';
 export const validate = (schema, property = 'body') => {
     return async (req, res, next) => {
         try {
-            // Manejo especial para cada tipo de propiedad
             let dataToValidate;
+
+            // Manejo especial para cada tipo de propiedad
             switch (property) {
                 case 'query':
-                    dataToValidate = { ...req.query }; // Copia de query params
+                    dataToValidate = { ...req.query };
                     break;
                 case 'params':
-                    dataToValidate = { ...req.params }; // Copia de URL params
+                    dataToValidate = { ...req.params };
                     break;
                 default:
+                    // Para body, usamos req.body directamente (ya procesado por Multer)
                     dataToValidate = req[property];
+
+                    // Si es FormData, los campos vienen como strings, podríamos necesitar parsear
+                    if (req.is('multipart/form-data')) {
+                        const parsedData = {};
+                        for (const [key, value] of Object.entries(dataToValidate)) {
+                            try {
+                                // Intenta parsear valores que podrían ser JSON
+                                parsedData[key] = JSON.parse(value);
+                            } catch {
+                                parsedData[key] = value;
+                            }
+                        }
+                        dataToValidate = parsedData;
+                    }
             }
 
             const validatedData = await schema.validate(dataToValidate, {

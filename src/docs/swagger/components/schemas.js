@@ -858,7 +858,7 @@
  *           items:
  *             type: string
  *           example: ["tecnología", "educación"]
- * 
+ *
  *     EventUpdateRequest:
  *       type: object
  *       properties:
@@ -902,13 +902,13 @@
  *           type: array
  *           items:
  *             type: string
- *             example: ["Pedro Rodríguez", "Juan Pérez"]
+ *           example: ["Pedro Rodríguez", "Juan Pérez"]
  *           nullable: true
  *         specialGuests:
  *           type: array
  *           items:
  *             type: string
- *             example: ["Invitado 1", "Invitado 2"]
+ *           example: ["Invitado 1", "Invitado 2"]
  *           nullable: true
  *         capacity:
  *           type: integer
@@ -926,9 +926,9 @@
  *           type: array
  *           items:
  *             type: string
- *             example: ["tecnología", "educación"]
+ *           example: ["tecnología", "educación"]
  *           nullable: true
- * 
+ *
  *     EventResponse:
  *       allOf:
  *         - $ref: '#/components/schemas/SuccessResponse'
@@ -936,7 +936,7 @@
  *           properties:
  *             data:
  *               $ref: '#/components/schemas/Event'
- * 
+ *
  *     Event:
  *       type: object
  *       properties:
@@ -1007,7 +1007,7 @@
  *           type: string
  *           format: date-time
  *           example: "2025-05-27T16:33:57.484Z"
- * 
+ *
  *     EventMedia:
  *       type: object
  *       properties:
@@ -1019,7 +1019,7 @@
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/EventVideo'
- * 
+ *
  *     EventImage:
  *       type: object
  *       properties:
@@ -1052,7 +1052,7 @@
  *           type: string
  *           format: date-time
  *           example: "2025-05-27T16:32:49.379Z"
- * 
+ *
  *     EventVideo:
  *       type: object
  *       properties:
@@ -1089,7 +1089,7 @@
  *           type: string
  *           format: date-time
  *           example: "2025-05-27T16:33:33.226Z"
- * 
+ *
  *     EventListResponse:
  *       properties:
  *             data:
@@ -1098,14 +1098,14 @@
  *                 $ref: '#/components/schemas/Event'
  *             pagination:
  *               $ref: '#/components/schemas/Pagination'
- * 
+ *
  *     EventMediaResponse:
  *           properties:
  *             data:
  *               oneOf:
  *                 - $ref: '#/components/schemas/EventImage'
  *                 - $ref: '#/components/schemas/EventVideo'
- * 
+ *
  *     EventDeletionResponse:
  *           properties:
  *             data:
@@ -1118,7 +1118,7 @@
  *                 deletedMediaCount:
  *                   type: integer
  *                   example: 3
- * 
+ *
  *     MediaDeletionResponse:
  *           properties:
  *             data:
@@ -1131,4 +1131,418 @@
  *                 remainingCount:
  *                   type: integer
  *                   example: 2
+ */
+
+// =============================================
+// Sección 11: Esquemas de Foro
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ForumThread:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         title:
+ *           type: string
+ *           example: "Oportunidades laborales en el área de TI"
+ *         content:
+ *           type: string
+ *           example: "Comparto esta oportunidad en una empresa internacional..."
+ *         author:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         category:
+ *           type: string
+ *           enum: [general, empleos, eventos, carreras, proyectos]
+ *           example: "empleos"
+ *         likes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/UserBasic'
+ *         media:
+ *           type: array
+ *           items:
+ *             oneOf:
+ *               - $ref: '#/components/schemas/ForumImage'
+ *               - $ref: '#/components/schemas/ForumVideo'
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["empleo", "TI", "remoto"]
+ *         viewCount:
+ *           type: integer
+ *           example: 42
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ * 
+ *     ForumComment:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439012"
+ *         content:
+ *           type: string
+ *           example: "Gracias por compartir, ¿cómo aplico?"
+ *         author:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         thread:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         parentComment:
+ *           type: string
+ *           format: mongo-id
+ *           nullable: true
+ *           example: null
+ *         mentions:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/UserBasic'
+ *         likes:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/UserBasic'
+ *         media:
+ *           oneOf:
+ *             - $ref: '#/components/schemas/ForumImage'
+ *             - $ref: '#/components/schemas/ForumVideo'
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ * 
+ *     ForumImage:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         mediaType:
+ *           type: string
+ *           enum: [image]
+ *         url:
+ *           type: string
+ *           format: uri
+ *         publicId:
+ *           type: string
+ *         format:
+ *           type: string
+ *           enum: [jpeg, jpg, png, webp, gif]
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             width:
+ *               type: integer
+ *             height:
+ *               type: integer
+ * 
+ *     ForumVideo:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         mediaType:
+ *           type: string
+ *           enum: [video]
+ *         url:
+ *           type: string
+ *           format: uri
+ *         publicId:
+ *           type: string
+ *         duration:
+ *           type: number
+ *         format:
+ *           type: string
+ *           enum: [mp4, webm, mov, avi]
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             width:
+ *               type: integer
+ *             height:
+ *               type: integer
+ * 
+ *     ThreadRequest:
+ *       type: object
+ *       required:
+ *         - title
+ *         - content
+ *         - category
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 5
+ *           maxLength: 200
+ *           example: "Oportunidades laborales en el área de TI"
+ *         content:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 5000
+ *           example: "Comparto esta oportunidad en una empresa internacional..."
+ *         category:
+ *           type: string
+ *           enum: [general, empleos, eventos, carreras, proyectos]
+ *           example: "empleos"
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *             minLength: 2
+ *             maxLength: 20
+ *           maxItems: 5
+ *           example: ["empleo", "TI", "remoto"]
+ * 
+ *     ThreadUpdate:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           minLength: 5
+ *           maxLength: 200
+ *           example: "Oportunidades laborales en el área de TI (Actualizado)"
+ *           nullable: true
+ *         content:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 5000
+ *           example: "Comparto esta oportunidad en una empresa internacional..."
+ *           nullable: true
+ *         category:
+ *           type: string
+ *           enum: [general, empleos, eventos, carreras, proyectos]
+ *           example: "empleos"
+ *           nullable: true
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *             minLength: 2
+ *             maxLength: 20
+ *           maxItems: 5
+ *           example: ["empleo", "TI", "remoto"]
+ *           nullable: true
+ * 
+ *     CommentRequest:
+ *       type: object
+ *       required:
+ *         - content
+ *       properties:
+ *         content:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 2000
+ *           example: "Gracias por compartir, ¿cómo aplico?"
+ *         parentCommentId:
+ *           type: string
+ *           format: mongo-id
+ *           nullable: true
+ *           example: null
+ * 
+ *     CommentUpdate:
+ *       type: object
+ *       required:
+ *         - content
+ *       properties:
+ *         content:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 2000
+ *           example: "Gracias por compartir, ¿cómo aplico?"
+ * 
+ *     LikeResponse:
+ *       type: object
+ *       properties:
+ *         action:
+ *           type: string
+ *           enum: [liked, unliked]
+ *           example: "liked"
+ *         likeCount:
+ *           type: integer
+ *           example: 5
+ *         isLiked:
+ *           type: boolean
+ *           example: true
+ */
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     ThreadSuccess:
+ *       description: Operación con hilo exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForumThread'
+ * 
+ *     ThreadListSuccess:
+ *       description: Lista de hilos obtenida exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/ForumThread'
+ *               pagination:
+ *                 $ref: '#/components/schemas/Pagination'
+ * 
+ *     ThreadWithComments:
+ *       description: Hilo con comentarios anidados
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *                 format: mongo-id
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               comments:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: mongo-id
+ *                     content:
+ *                       type: string
+ *                     author:
+ *                       $ref: '#/components/schemas/UserBasic'
+ *                     replies:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: mongo-id
+ *                           content:
+ *                             type: string
+ *                           author:
+ *                             $ref: '#/components/schemas/UserBasic'
+ * 
+ *     CommentSuccess:
+ *       description: Operación con comentario exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForumComment'
+ * 
+ *     LikeSuccess:
+ *       description: Operación de like exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LikeResponse'
+ * 
+ *     ThreadNotFound:
+ *       description: Hilo no encontrado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "THREAD_404"
+ *                   message: "Hilo no encontrado"
+ *                   details: ["No se encontró el hilo con ID 507f1f77bcf86cd799439011"]
+ * 
+ *     CommentNotFound:
+ *       description: Comentario no encontrado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "COMMENT_404"
+ *                   message: "Comentario no encontrado"
+ *                   details: ["No se encontró el comentario con ID 507f1f77bcf86cd799439012"]
+ * 
+ *     MediaNotFound:
+ *       description: Medio no encontrado en el hilo/comentario
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "MEDIA_404"
+ *                   message: "Medio no encontrado"
+ *                   details: ["La imagen/video solicitado no existe en este hilo/comentario"]
+ */
+
+/**
+ * @swagger
+ * components:
+ *   parameters:
+ *     threadId:
+ *       in: path
+ *       name: threadId
+ *       required: true
+ *       schema:
+ *         type: string
+ *         format: mongo-id
+ *       description: ID del hilo
+ *       example: "507f1f77bcf86cd799439011"
+ * 
+ *     commentId:
+ *       in: path
+ *       name: commentId
+ *       required: true
+ *       schema:
+ *         type: string
+ *         format: mongo-id
+ *       description: ID del comentario
+ *       example: "507f1f77bcf86cd799439012"
+ * 
+ *     mediaId:
+ *       in: path
+ *       name: mediaId
+ *       required: true
+ *       schema:
+ *         type: string
+ *         format: mongo-id
+ *       description: ID del medio (imagen o video)
+ *       example: "507f1f77bcf86cd799439013"
+ * 
+ *     likeType:
+ *       in: path
+ *       name: type
+ *       required: true
+ *       schema:
+ *         type: string
+ *         enum: [thread, comment]
+ *       description: Tipo de elemento a likear (hilo o comentario)
+ *       example: "thread"
  */

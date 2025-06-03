@@ -112,25 +112,12 @@ const EventSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
-  media: {
-    images: [{
-      url: String,
-      publicId: String,
-      uploadedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+  media: [
+    {
+      mediaType: {
+        type: String,
+        enum: ['image', 'video']
       },
-      format: String,
-      dimensions: {
-        width: Number,
-        height: Number
-      },
-      uploadedAt: {
-        type: Date,
-        default: Date.now
-      }
-    }],
-    videos: [{
       url: String,
       publicId: String,
       duration: Number, // en segundos
@@ -138,17 +125,9 @@ const EventSchema = new mongoose.Schema({
       dimensions: {
         width: Number,
         height: Number
-      },
-      uploadedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      uploadedAt: {
-        type: Date,
-        default: Date.now
       }
-    }]
-  },
+    }
+  ],
   savedByUsers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -165,17 +144,9 @@ const EventSchema = new mongoose.Schema({
       delete ret.__v;
 
       // Transformación anidada para imágenes
-      if (ret.media && ret.media.images) {
-        ret.media.images = ret.media.images.map(image => {
-          const { _id, ...rest } = image;
-          return { id: _id, ...rest };
-        });
-      }
-
-      // Transformación anidada para videos
-      if (ret.media && ret.media.videos) {
-        ret.media.videos = ret.media.videos.map(video => {
-          const { _id, ...rest } = video;
+      if (ret.media) {
+        ret.media = ret.media.map(media => {
+          const { _id, ...rest } = media;
           return { id: _id, ...rest };
         });
       }
@@ -191,16 +162,9 @@ const EventSchema = new mongoose.Schema({
       delete ret._id;
       delete ret.__v;
 
-      if (ret.media && ret.media.images) {
-        ret.media.images = ret.media.images.map(image => {
-          const { _id, ...rest } = image;
-          return { id: _id, ...rest };
-        });
-      }
-
-      if (ret.media && ret.media.videos) {
-        ret.media.videos = ret.media.videos.map(video => {
-          const { _id, ...rest } = video;
+      if (ret.media) {
+        ret.media = ret.media.map(media => {
+          const { _id, ...rest } = media;
           return { id: _id, ...rest };
         });
       }
@@ -214,5 +178,6 @@ const EventSchema = new mongoose.Schema({
 EventSchema.index({ title: 'text', description: 'text' });
 EventSchema.index({ startDate: 1 });
 EventSchema.index({ eventType: 1 });
+EventSchema.index({ tags: 1 });
 
 export default mongoose.model('Event', EventSchema);

@@ -302,7 +302,7 @@ export default function alumniRoutes(fileService) {
      */
     router.patch('/profile/picture',
         authenticate,
-        fileService.getValidationMiddleware('picture', { maxSize: 10 }),
+        fileService.getValidationMiddleware('picture', { maxSize: 10, type: 'image' }),
         alumniController.updateProfilePicture
     );
 

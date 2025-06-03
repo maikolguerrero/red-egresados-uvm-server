@@ -95,7 +95,7 @@ export default class AlumniController {
                 Alumni.find(alumniFilter)
                     .populate({
                         path: 'user',
-                        select: 'username isActive lastLogin createdAt'
+                        select: '-password -verificationToken -verificationTokenExpires -verificationDate -verificationAttempts -lastVerificationAttempt -resetPasswordToken -resetPasswordExpires -__v -profilePicture.uploadedAt -profilePicture.publicId'
                     })
                     .select('-isRegistered -registrationDate -__v')
                     .skip(skip)
@@ -119,9 +119,9 @@ export default class AlumniController {
                     ...item.toObject(),
                     user: item.user ? {
                         username: item.user.username,
-                        isActive: item.user.isActive,
-                        lastLogin: item.user.lastLogin,
-                        memberSince: item.user.createdAt
+                        profilePicture: item.user.profilePicture,
+                        lastLogin: item.user.lastLogin
+
                     } : null
                 }))
             });
@@ -155,6 +155,7 @@ export default class AlumniController {
                 username: username.toLowerCase(),
                 role: 'egresado'
             })
+                .select('-password -verificationToken -verificationTokenExpires -verificationDate -verificationAttempts -lastVerificationAttempt -resetPasswordToken -resetPasswordExpires -__v -profilePicture.uploadedAt')
                 .populate({
                     path: 'alumni',
                     select: '-__v -studentId -idNumber -isRegistered -registrationDate -createdAt -updatedAt'
@@ -191,7 +192,7 @@ export default class AlumniController {
                 ...alumniData,
                 user: {
                     username: userData.username,
-                    memberSince: userData.createdAt,
+                    profilePicture: userData.profilePicture,
                     lastLogin: userData.lastLogin
                 },
                 profile: profileData
@@ -414,6 +415,10 @@ export default class AlumniController {
                 ip: req.ip
             });
 
+            if (!file) {
+                throw new AppError('Archivo no encontrado', 404, 'FILE_NOT_FOUND');
+            }
+
             // 1. Validación ya realizada por el middleware
             const user = await User.findById(userId);
             if (!user) {
@@ -474,6 +479,10 @@ export default class AlumniController {
                 },
                 { new: true, runValidators: true }
             ).select('-__v -password -verificationToken -resetPasswordToken');
+
+            if (!updatedUser) {
+                throw new AppError('No se pudo actualizar la foto de perfil', 500, 'USER_NOT_FOUND');
+            }
 
             req.logger.info('Foto de perfil actualizada', {
                 action: 'updateProfilePicture',

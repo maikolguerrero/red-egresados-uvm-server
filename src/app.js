@@ -14,6 +14,7 @@
  * @requires ./routes/auth.routes
  * @requires ./routes/alumni.routes
  * @requires ./routes/event.routes
+ * @requires ./routes/forum.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -51,6 +52,7 @@ import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
 import alumniRoutes from './routes/alumni.routes.js';
 import eventRoutes from './routes/event.routes.js';
+import forumRoutes from './routes/forum.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -177,7 +179,7 @@ const corsOptions = {
         'http://localhost:3000'
     ],
     credentials: true, // Permite cookies en cross-origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Length', 'X-Request-ID'],
     maxAge: 86400 // Preflight cache por 24 horas
@@ -247,6 +249,12 @@ app.use('/api/alumni', apiLimiter , alumniRoutes(fileService));
  */
 app.use('/api/events', apiLimiter, eventRoutes(fileService));
 
+/**
+ * @route /api/forum
+ * @description Rutas de foro con limitador de tasa específico
+ * @see {@link ./routes/forum.routes.js}
+ */
+app.use('/api/forum', apiLimiter, forumRoutes(fileService));
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores

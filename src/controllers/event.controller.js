@@ -89,8 +89,15 @@ export default class EventController {
     */
     getEvents = async (req, res, next) => {
         try {
-            const { page = 1, limit = 10, type, search, upcoming } = req.query;
+            const { page = 1, limit = 10, type, tags, tagMatch = 'any', search, upcoming } = req.query;
             const skip = (page - 1) * limit;
+            let tagsArray = tags;
+            // Convertir tags a array si viene como string
+            if (tags && typeof tags === 'string') {
+                tagsArray = tags.split(',').map(tag => tag.trim().toLowerCase());
+            } else if (!tags) {
+                tagsArray = [];
+            }
 
             req.logger.debug('Inicio obtención de eventos', {
                 userId: req.user.id,
@@ -99,6 +106,16 @@ export default class EventController {
 
             const filter = {};
             if (type) filter.eventType = type;
+            if (tagsArray.length > 0) {
+                if (tagMatch === 'all') {
+                    // Para coincidencia con TODOS los tags
+                    filter.tags = { $all: tagsArray.map(tag => new RegExp(tag, 'i')) };
+                } else {
+                    // Para coincidencia con ALGUNO de los tags
+                    filter.tags = { $in: tagsArray.map(tag => new RegExp(tag, 'i')) };
+                }
+            }
+
             if (search) filter.$text = { $search: search };
             if (upcoming === 'true') filter.startDate = { $gte: new Date() };
 
@@ -152,8 +169,6 @@ export default class EventController {
 
             const event = await Event.findById(id)
                 .populate('createdBy', 'username email firstName lastName')
-                .populate('media.images.uploadedBy', 'username')
-                .populate('media.videos.uploadedBy', 'username');
 
             if (!event) {
                 throw new AppError('Evento no encontrado', 404, 'EVENT_NOT_FOUND');
@@ -239,7 +254,7 @@ export default class EventController {
     /**
     * @method deleteEvent
     * @async
-    * @description Elimina un evento y todos sus recursos asociados
+    * @description Elimina un evento y todos sus recursos asociados (admin o creador)
     * @param {Object} req - Objeto de petición Express
     * @param {Object} res - Objeto de respuesta Express
     * @param {Function} next - Función para pasar al siguiente middleware
@@ -248,57 +263,52 @@ export default class EventController {
     deleteEvent = async (req, res, next) => {
         try {
             const { id } = req.params;
-            const { userId } = req.user;
+            const { id: userId, role } = req.user;
 
-            req.logger.debug('Inicio eliminación de evento', {
-                userId,
-                ip: req.ip
-            });
-
+            // 1. Buscar el evento con sus medios
             const event = await Event.findById(id);
             if (!event) {
                 throw new AppError('Evento no encontrado', 404, 'EVENT_NOT_FOUND');
             }
 
-            // Solo el organizador o un admin puede eliminar
-            if (event.createdBy.toString() !== userId && req.user.role !== 'admin') {
-                throw new AppError('No autorizado para eliminar este evento', 403, 'FORBIDDEN');
-            }
+            // 2. Eliminar todos los medios asociados
+            const mediaDeletionResults = await Promise.all(
+                event.media.map(media =>
+                    this.deleteMediaWithLogging(media, id, req.logger)
+                )
+            );
 
-            // Eliminar medios de Cloudinary
-            const deleteMediaPromises = [];
-
-            // Eliminar imágenes
-            event.media.images.forEach(image => {
-                deleteMediaPromises.push(this.fileService.deleteFile(image.publicId));
-            });
-
-            // Eliminar videos
-            event.media.videos.forEach(video => {
-                deleteMediaPromises.push(this.fileService.deleteFile(video.publicId, 'video'));
-            });
-
-            // Esperar a que se eliminen todos los medios
-            await Promise.all(deleteMediaPromises);
-
-            // Eliminar el evento
+            // 3. Eliminar el evento
             await event.deleteOne();
 
+            // 4. Preparar estadísticas
+            const deletionStats = {
+                media: {
+                    attempted: event.media.length,
+                    succeeded: mediaDeletionResults.filter(r => r.success).length
+                }
+            };
+
+            // 5. Registrar resultados
             req.logger.info('Evento eliminado exitosamente', {
-                action: 'event_delete_success',
-                userId,
+                action: 'event_delete',
                 eventId: id,
-                ip: req.ip
+                userId,
+                deletedBy: role === 'admin' ? 'admin' : 'creator',
+                stats: deletionStats
             });
 
+            // 6. Responder con detalles
             res.json({
                 success: true,
-                message: 'Evento eliminado correctamente',
+                message: 'Evento y recursos asociados eliminados',
                 data: {
-                    deletedEventId: id,
-                    deletedMediaCount: event.media.images.length + event.media.videos.length
-                }
+                    eventId: id,
+                    deletions: deletionStats
+                },
+                warnings: this.collectDeletionWarnings(mediaDeletionResults, 'Event')
             });
+
         } catch (error) {
             next(error);
         }
@@ -331,11 +341,6 @@ export default class EventController {
 
             if (!file) {
                 throw new AppError('No se proporcionó archivo', 400, 'NO_FILE_PROVIDED');
-            }
-
-            // Verificar permisos
-            if (event.createdBy.toString() !== userId && req.user.role !== 'admin') {
-                throw new AppError('No autorizado para añadir imágenes', 403, 'FORBIDDEN');
             }
 
             // Convertir buffer a formato que Cloudinary pueda procesar
@@ -371,7 +376,7 @@ export default class EventController {
             };
 
             // Añadir metadatos al evento
-            event.media.images.push(newImage);
+            event.media.push(newImage);
 
             await event.save();
 
@@ -424,11 +429,6 @@ export default class EventController {
                 throw new AppError('No se proporcionó archivo', 400, 'NO_FILE_PROVIDED');
             }
 
-            // Verificar permisos
-            if (event.createdBy.toString() !== userId && req.user.role !== 'admin') {
-                throw new AppError('No autorizado para añadir videos', 403, 'FORBIDDEN');
-            }
-
             // Convertir buffer a formato que Cloudinary pueda procesar
             const fileBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
@@ -454,6 +454,7 @@ export default class EventController {
             }
 
             const newVideo = {
+                mediaType: 'video',
                 url: uploadResult.url,
                 publicId: uploadResult.publicId,
                 duration: uploadResult.duration,
@@ -466,7 +467,7 @@ export default class EventController {
             };
 
             // Añadir metadatos al evento
-            event.media.videos.push(newVideo);
+            event.media.push(newVideo);
             await event.save();
 
             req.logger.info('Video añadido exitosamente', {
@@ -514,13 +515,8 @@ export default class EventController {
                 throw new AppError('Evento no encontrado', 404, 'EVENT_NOT_FOUND');
             }
 
-            // 2. Verificar permisos (solo organizador o admin puede eliminar)
-            if (!event.createdBy.toString() !== userId && req.user.role !== 'admin') {
-                throw new AppError('No autorizado para esta acción', 403, 'FORBIDDEN');
-            }
-
             // 3. Buscar la imagen en el array
-            const imageIndex = event.media.images.findIndex(
+            const imageIndex = event.media.findIndex(
                 img => img._id.toString() === imageId
             );
 
@@ -528,7 +524,7 @@ export default class EventController {
                 throw new AppError('Imagen no encontrada en el evento', 404, 'IMAGE_NOT_FOUND');
             }
 
-            const imageToDelete = event.media.images[imageIndex];
+            const imageToDelete = event.media[imageIndex];
 
             // 4. Eliminar de Cloudinary
             const deleteResult = await this.fileService.deleteFile(imageToDelete.publicId);
@@ -538,7 +534,7 @@ export default class EventController {
             }
 
             // 5. Eliminar del array y guardar
-            event.media.images.splice(imageIndex, 1);
+            event.media.splice(imageIndex, 1);
             await event.save();
 
             res.json({
@@ -546,7 +542,7 @@ export default class EventController {
                 message: 'Imagen eliminada correctamente',
                 data: {
                     deletedImageId: imageId,
-                    remainingImages: event.media.images.length
+                    remainingImages: event.media.length
                 }
             });
 
@@ -588,13 +584,8 @@ export default class EventController {
                 throw new AppError('Evento no encontrado', 404, 'EVENT_NOT_FOUND');
             }
 
-            // 2. Verificar permisos
-            if (!event.createdBy.toString() !== userId && req.user.role !== 'admin') {
-                throw new AppError('No autorizado para esta acción', 403, 'FORBIDDEN');
-            }
-
             // 3. Buscar el video en el array
-            const videoIndex = event.media.videos.findIndex(
+            const videoIndex = event.media.findIndex(
                 vid => vid._id.toString() === videoId
             );
 
@@ -602,13 +593,17 @@ export default class EventController {
                 throw new AppError('Video no encontrado en el evento', 404, 'VIDEO_NOT_FOUND');
             }
 
-            const videoToDelete = event.media.videos[videoIndex];
+            const videoToDelete = event.media[videoIndex];
 
             // 4. Eliminar de Cloudinary
-            await this.fileService.deleteFile(videoToDelete.publicId, 'video');
+            const deleteResult = await this.fileService.deleteFile(videoToDelete.publicId, 'video');
+
+            if (!deleteResult.success) {
+                throw new AppError('Error al eliminar la imagen', 500, 'IMAGE_DELETE_FAILED');
+            }
 
             // 5. Eliminar del array y guardar
-            event.media.videos.splice(videoIndex, 1);
+            event.media.splice(videoIndex, 1);
             await event.save();
 
             req.logger.info('Video eliminado exitosamente', {
@@ -624,7 +619,7 @@ export default class EventController {
                 message: 'Video eliminado correctamente',
                 data: {
                     deletedVideoId: videoId,
-                    remainingVideos: event.media.videos.length
+                    remainingVideos: event.media.length
                 }
             });
 
@@ -632,6 +627,55 @@ export default class EventController {
             next(error);
         }
     };
+
+    /**
+     * @method deleteMediaWithLogging
+     * @description Elimina un medio con registro detallado
+     */
+    async deleteMediaWithLogging(media, eventId, logger) {
+        const context = {
+            eventId,
+            mediaType: media.mediaType,
+            publicId: media.publicId
+        };
+
+        try {
+            const result = await this.fileService.deleteFile(
+                media.publicId,
+                media.mediaType
+            );
+
+            if (!result.success) {
+                logger.warn('Eliminación de medio fallida', {
+                    ...context,
+                    error: result.error
+                });
+            }
+            return result;
+        } catch (error) {
+            logger.error('Error al eliminar medio', {
+                ...context,
+                error: error.message
+            });
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * @method collectDeletionWarnings
+     * @description Recopila advertencias de eliminación fallida
+     */
+    collectDeletionWarnings(results, type) {
+        const failures = results.filter(r => !r.success);
+        if (failures.length === 0) return {};
+
+        return {
+            [`${type.toLowerCase()}MediaFailures`]: failures.map(f => ({
+                publicId: f.publicId,
+                error: f.error
+            }))
+        };
+    }
 
     /**
     * @method saveEventForUser

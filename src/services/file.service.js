@@ -348,15 +348,17 @@ export default class FileService {
      * @param {number} [options.maxSize=50] - Tamaño máximo en MB
      * @returns {Function} Middleware de Multer para validación
      */
-    getValidationMiddleware(fieldName, options = {}) {
+    getValidationMiddleware(fieldName = 'media', options = {}) {
         const maxSizeMB = options.maxSize || 50;
         const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        const type = options.type || 'media';
+        const maxFiles = options.maxFiles || 1;
 
         return multer({
             storage: multer.memoryStorage(), // Almacena en memoria sin subir
             limits: {
                 fileSize: maxSizeBytes,
-                files: 1
+                files: maxFiles
             },
             fileFilter: (req, file, cb) => {
                 // Verificar tamaño
@@ -376,7 +378,15 @@ export default class FileService {
                 // Verificar tipo de archivo
                 const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
                 const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
-                const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+
+                let allowedTypes;
+                if (type === 'image') {
+                    allowedTypes = allowedImageTypes;
+                } else if (type === 'video') {
+                    allowedTypes = allowedVideoTypes;
+                } else if (type === 'media') {
+                    allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+                }
 
                 if (!allowedTypes.includes(file.mimetype)) {
                     return cb(new AppError(

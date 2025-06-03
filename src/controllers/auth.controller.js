@@ -676,7 +676,16 @@ export default class AuthController {
             });
 
             // Responder con éxito
-            res.json({ success: true, message: 'Inicio de sesión exitoso' });
+            res.json({
+                success: true,
+                requestId: req.requestId,
+                message: 'Inicio de sesión exitoso',
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    role: user.role
+                }
+            });
         } catch (error) {
             next(error);
         }
