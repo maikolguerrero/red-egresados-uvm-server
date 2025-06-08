@@ -1149,10 +1149,10 @@
  *           example: "507f1f77bcf86cd799439011"
  *         title:
  *           type: string
- *           example: "Oportunidades laborales en el área de TI"
+ *           example: "Oportunidades laborales en TI"
  *         content:
  *           type: string
- *           example: "Comparto esta oportunidad en una empresa internacional..."
+ *           example: "Comparto esta oportunidad..."
  *         author:
  *           $ref: '#/components/schemas/UserBasic'
  *         category:
@@ -1163,6 +1163,10 @@
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/UserBasic'
+ *         commentCount:
+ *           type: integer
+ *           example: 15
+ *           description: Número total de comentarios en el hilo
  *         media:
  *           type: array
  *           items:

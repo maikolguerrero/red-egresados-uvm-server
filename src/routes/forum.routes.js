@@ -275,13 +275,18 @@ export default function forumRoutes(fileService) {
      *           enum: [newest, oldest, top]
      *     responses:
      *       200:
-     *         description: Lista de hilos paginada
+     *         description: Lista paginada de hilos
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/responses/ThreadListSuccess'
-     *       400:
-     *         $ref: '#/components/responses/ValidationError'
+     *               type: object
+     *               properties:
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     $ref: '#/components/schemas/ForumThread'
+     *                 pagination:
+     *                   $ref: '#/components/schemas/Pagination'
      */
     router.get('/threads', authenticate, validateQuery(threadQuerySchema), forumController.getThreads);
 
@@ -289,19 +294,34 @@ export default function forumRoutes(fileService) {
      * @swagger
      * /api/forum/threads/{threadId}:
      *   get:
-     *     summary: Obtener un hilo con sus comentarios
+     *     summary: Obtener hilo con sus comentarios
      *     tags: [Foro]
      *     parameters:
      *       - $ref: '#/components/parameters/threadId'
      *     responses:
      *       200:
-     *         description: Hilo con comentarios anidados
+     *         description: Hilo completo con metadatos
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/responses/ThreadWithComments'
+     *               type: object
+     *               properties:
+     *                 id:
+     *                   $ref: '#/components/schemas/ForumThread/properties/id'
+     *                 title:
+     *                   $ref: '#/components/schemas/ForumThread/properties/title'
+     *                 commentCount:
+     *                   $ref: '#/components/schemas/ForumThread/properties/commentCount'
+     *                 comments:
+     *                   type: array
+     *                   items:
+     *                     $ref: '#/components/schemas/ForumComment'
      *       404:
-     *         $ref: '#/components/responses/ThreadNotFound'
+     *         description: Hilo no encontrado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/threads/:threadId',
         authenticate,

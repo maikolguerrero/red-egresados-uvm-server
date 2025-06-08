@@ -367,31 +367,27 @@ export default class ForumController {
                 default: sortOption = { createdAt: -1 };
             }
 
+            // Obtener los hilos
             const [threads, total] = await Promise.all([
                 ForumThread.find(filter)
                     .sort(sortOption)
                     .skip(skip)
                     .limit(parseInt(limit))
-                    .populate('author', 'username profilePicture')
-                    .populate({
-                        path: 'comments',
-                        options: { limit: 3 },
-                        populate: { path: 'author', select: 'username profilePicture' }
-                    }),
+                    .populate('author', 'username profilePicture'),
                 ForumThread.countDocuments(filter)
             ]);
 
-            // Mapear los hilos para incluir información de like del usuario
-            const threadsWithLikeStatus = threads.map(thread => {
-                const threadObj = thread.toObject();
-                threadObj.isLiked = thread.likes.some(likeId => likeId.toString() === userId);
-                threadObj.likeCount = thread.likes.length;
-                threadObj.comments.forEach(comment => {
-                    comment.isLiked = comment.likes.some(likeId => likeId.toString() === userId);
-                    comment.likeCount = comment.likes.length;
-                });
-                return threadObj;
-            });
+            // Obtener el conteo de comentarios para cada hilo
+            const threadsWithCommentCount = await Promise.all(
+                threads.map(async thread => {
+                    const commentCount = await ForumComment.countDocuments({ thread: thread._id });
+                    const threadObj = thread.toObject();
+                    threadObj.commentCount = commentCount;
+                    threadObj.isLiked = thread.likes.some(likeId => likeId.toString() === userId);
+                    threadObj.likeCount = thread.likes.length;
+                    return threadObj;
+                })
+            );
 
             res.json({
                 success: true,
@@ -401,7 +397,7 @@ export default class ForumController {
                     pages: Math.ceil(total / limit),
                     limit: parseInt(limit)
                 },
-                data: threadsWithLikeStatus
+                data: threadsWithCommentCount
             });
         } catch (error) {
             next(error);
