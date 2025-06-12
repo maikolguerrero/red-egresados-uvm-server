@@ -173,35 +173,35 @@
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/EventResponse'
- * 
+ *
  *     EventListSuccess:
  *       description: Lista de eventos obtenida exitosamente
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/EventListResponse'
- * 
+ *
  *     EventMediaSuccess:
  *       description: Operación con medios de evento exitosa
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/EventMediaResponse'
- * 
+ *
  *     EventDeleted:
  *       description: Evento eliminado exitosamente
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/EventDeletionResponse'
- * 
+ *
  *     MediaDeleted:
  *       description: Medio eliminado exitosamente
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/MediaDeletionResponse'
- * 
+ *
  *     EventNotFound:
  *       description: Evento no encontrado
  *       content:
@@ -216,7 +216,7 @@
  *                   code: "EVENT_404"
  *                   message: "Evento no encontrado"
  *                   details: ["No se encontró el evento con ID 507f1f77bcf86cd799439011"]
- * 
+ *
  *     MediaNotFound:
  *       description: Medio no encontrado en el evento
  *       content:
@@ -231,4 +231,56 @@
  *                   code: "MEDIA_404"
  *                   message: "Medio no encontrado"
  *                   details: ["La imagen/video solicitado no existe en este evento"]
+ */
+
+
+// =============================================
+// Sección 11: Respuestas de Proyectos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     ProjectSuccess:
+ *       description: Operación con proyecto exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProjectResponse'
+ * 
+ *     ProjectListSuccess:
+ *       description: Lista de proyectos obtenida exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProjectListResponse'
+ * 
+ *     ProjectMediaSuccess:
+ *       description: Operación con medios de proyecto exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProjectMediaResponse'
+ * 
+ *     ProjectNotFound:
+ *       description: Proyecto no encontrado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "PROJECT_404"
+ *                   message: "Proyecto no encontrado"
+ *                   details: ["No se encontró el proyecto con ID 507f1f77bcf86cd799439011"]
+ * 
+ *     CollaboratorResponse:
+ *       description: Respuesta de operación con colaborador
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Collaborator'
  */

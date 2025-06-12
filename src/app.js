@@ -15,6 +15,7 @@
  * @requires ./routes/alumni.routes
  * @requires ./routes/event.routes
  * @requires ./routes/forum.routes
+ * @requires ./routes/project.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -53,6 +54,7 @@ import authRoutes from './routes/auth.routes.js';
 import alumniRoutes from './routes/alumni.routes.js';
 import eventRoutes from './routes/event.routes.js';
 import forumRoutes from './routes/forum.routes.js';
+import projectRoutes from './routes/project.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -255,6 +257,13 @@ app.use('/api/events', apiLimiter, eventRoutes(fileService));
  * @see {@link ./routes/forum.routes.js}
  */
 app.use('/api/forum', apiLimiter, forumRoutes(fileService));
+
+/**
+ * @route /api/projects
+ * @description Rutas de proyectos con limitador de tasa específico
+ * @see {@link ./routes/project.routes.js}
+ */
+app.use('/api/projects', apiLimiter, projectRoutes(fileService));
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores

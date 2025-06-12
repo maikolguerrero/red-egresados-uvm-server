@@ -4,7 +4,7 @@
  * @description
  * Este archivo contiene ejemplos estructurados de respuestas de error y éxito
  * que pueden ser reutilizados en múltiples endpoints de la API.
- * 
+ *
  * Los ejemplos siguen el estándar OpenAPI 3.0 y se organizan por categorías:
  * - Errores de validación
  * - Errores de autenticación
@@ -36,7 +36,7 @@
  *         data:
  *           profilePicture: "https://res.cloudinary.com/uvm/image/upload/v123/profile_abc123.webp"
  *           userId: "507f1f77bcf86cd799439011"
- * 
+ *
  *     InvalidFileTypeError:
  *       summary: Tipo de archivo no soportado
  *       value:
@@ -46,7 +46,7 @@
  *           message: "Tipo de archivo no permitido"
  *           details: ["Formatos soportados: JPG, JPEG, PNG, GIF"]
  *           timestamp: "2024-05-03T12:15:30Z"
- * 
+ *
  *     NoFileProvidedError:
  *       summary: No se proporcionó archivo
  *       value:
@@ -56,7 +56,7 @@
  *           message: "No se proporcionó archivo"
  *           details: ["El campo 'picture' es requerido"]
  *           timestamp: "2024-05-03T12:16:45Z"
- * 
+ *
  *     FileTooLargeError:
  *       summary: Archivo excede tamaño máximo
  *       value:
@@ -66,7 +66,7 @@
  *           message: "El archivo excede el tamaño máximo"
  *           details: ["Tamaño máximo permitido: 10MB"]
  *           timestamp: "2024-05-03T12:17:20Z"
- * 
+ *
  *     ImageUploadError:
  *       summary: Error al subir imagen
  *       value:
@@ -91,7 +91,7 @@
  *         success: true
  *         data:
  *           $ref: '#/components/schemas/Event'
- * 
+ *
  *     EventList:
  *       summary: Ejemplo de lista de eventos
  *       value:
@@ -104,21 +104,21 @@
  *           page: 1
  *           pages: 3
  *           limit: 10
- * 
+ *
  *     EventImageAdded:
  *       summary: Ejemplo de imagen añadida
  *       value:
  *         success: true
  *         data:
  *           $ref: '#/components/schemas/EventImage'
- * 
+ *
  *     EventVideoAdded:
  *       summary: Ejemplo de video añadido
  *       value:
  *         success: true
  *         data:
  *           $ref: '#/components/schemas/EventVideo'
- * 
+ *
  *     EventDeleted:
  *       summary: Ejemplo de evento eliminado
  *       value:
@@ -127,7 +127,7 @@
  *         data:
  *           deletedEventId: "507f1f77bcf86cd799439011"
  *           deletedMediaCount: 3
- * 
+ *
  *     EventImageDeleted:
  *       summary: Ejemplo de imagen eliminada
  *       value:
@@ -136,7 +136,7 @@
  *         data:
  *           deletedImageId: "507f1f77bcf86cd799439012"
  *           remainingImages: 2
- * 
+ *
  *     EventVideoDeleted:
  *       summary: Ejemplo de video eliminado
  *       value:
@@ -145,4 +145,67 @@
  *         data:
  *           deletedVideoId: "507f1f77bcf86cd799439013"
  *           remainingVideos: 1
+ */
+
+// =============================================
+// Sección 11: Ejemplos de Proyectos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   examples:
+ *     ProjectCreated:
+ *       summary: Ejemplo de proyecto creado
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/Project'
+ * 
+ *     ProjectList:
+ *       summary: Ejemplo de lista de proyectos
+ *       value:
+ *         success: true
+ *         data:
+ *           - $ref: '#/components/schemas/Project'
+ *           - $ref: '#/components/schemas/Project'
+ *         pagination:
+ *           total: 25
+ *           page: 1
+ *           pages: 3
+ *           limit: 10
+ * 
+ *     ProjectImageAdded:
+ *       summary: Ejemplo de imagen añadida
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/ProjectMedia'
+ * 
+ *     ProjectVideoAdded:
+ *       summary: Ejemplo de video añadido
+ *       value:
+ *         success: true
+ *         data:
+ *           $ref: '#/components/schemas/ProjectMedia'
+ * 
+ *     ProjectDeleted:
+ *       summary: Ejemplo de proyecto eliminado
+ *       value:
+ *         success: true
+ *         message: "Proyecto eliminado correctamente"
+ *         data:
+ *           deletedProjectId: "507f1f77bcf86cd799439011"
+ *           deletedMediaCount: 3
+ * 
+ *     CollaboratorAdded:
+ *       summary: Ejemplo de colaborador añadido
+ *       value:
+ *         success: true
+ *         data:
+ *           user:
+ *             id: "507f1f77bcf86cd799439012"
+ *             username: "jperez"
+ *             profilePicture: "https://example.com/profile.jpg"
+ *           role: "member"
+ *           joinedAt: "2025-05-28T16:45:30Z"
  */

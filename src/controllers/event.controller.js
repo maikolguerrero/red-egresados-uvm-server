@@ -351,9 +351,9 @@ export default class EventController {
                 fileBase64, // Enviar como string base64
                 `event-${id}`,
                 {
-                    width: 1200,
-                    height: 630,
-                    crop: 'fill',
+                    // width: 1200,
+                    // height: 630,
+                    // crop: 'fill',
                     format: 'webp',
                     folder: 'events/images',
                     originalName: file.originalname
@@ -437,8 +437,8 @@ export default class EventController {
                 fileBase64,
                 `event-${id}`,
                 {
-                    width: 1280,
-                    height: 720,
+                    // width: 1280,
+                    // height: 720,
                     format: 'mp4',
                     folder: 'events/videos',
                     originalName: file.originalname,

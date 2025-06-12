@@ -1187,7 +1187,7 @@
  *         updatedAt:
  *           type: string
  *           format: date-time
- * 
+ *
  *     ForumComment:
  *       type: object
  *       properties:
@@ -1227,7 +1227,7 @@
  *         updatedAt:
  *           type: string
  *           format: date-time
- * 
+ *
  *     ForumImage:
  *       type: object
  *       properties:
@@ -1252,7 +1252,7 @@
  *               type: integer
  *             height:
  *               type: integer
- * 
+ *
  *     ForumVideo:
  *       type: object
  *       properties:
@@ -1279,7 +1279,7 @@
  *               type: integer
  *             height:
  *               type: integer
- * 
+ *
  *     ThreadRequest:
  *       type: object
  *       required:
@@ -1309,7 +1309,7 @@
  *             maxLength: 20
  *           maxItems: 5
  *           example: ["empleo", "TI", "remoto"]
- * 
+ *
  *     ThreadUpdate:
  *       type: object
  *       properties:
@@ -1339,7 +1339,7 @@
  *           maxItems: 5
  *           example: ["empleo", "TI", "remoto"]
  *           nullable: true
- * 
+ *
  *     CommentRequest:
  *       type: object
  *       required:
@@ -1355,7 +1355,7 @@
  *           format: mongo-id
  *           nullable: true
  *           example: null
- * 
+ *
  *     CommentUpdate:
  *       type: object
  *       required:
@@ -1366,7 +1366,7 @@
  *           minLength: 1
  *           maxLength: 2000
  *           example: "Gracias por compartir, ¿cómo aplico?"
- * 
+ *
  *     LikeResponse:
  *       type: object
  *       properties:
@@ -1392,7 +1392,7 @@
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ForumThread'
- * 
+ *
  *     ThreadListSuccess:
  *       description: Lista de hilos obtenida exitosamente
  *       content:
@@ -1406,7 +1406,7 @@
  *                   $ref: '#/components/schemas/ForumThread'
  *               pagination:
  *                 $ref: '#/components/schemas/Pagination'
- * 
+ *
  *     ThreadWithComments:
  *       description: Hilo con comentarios anidados
  *       content:
@@ -1445,21 +1445,21 @@
  *                             type: string
  *                           author:
  *                             $ref: '#/components/schemas/UserBasic'
- * 
+ *
  *     CommentSuccess:
  *       description: Operación con comentario exitosa
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/ForumComment'
- * 
+ *
  *     LikeSuccess:
  *       description: Operación de like exitosa
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/LikeResponse'
- * 
+ *
  *     ThreadNotFound:
  *       description: Hilo no encontrado
  *       content:
@@ -1474,7 +1474,7 @@
  *                   code: "THREAD_404"
  *                   message: "Hilo no encontrado"
  *                   details: ["No se encontró el hilo con ID 507f1f77bcf86cd799439011"]
- * 
+ *
  *     CommentNotFound:
  *       description: Comentario no encontrado
  *       content:
@@ -1489,7 +1489,7 @@
  *                   code: "COMMENT_404"
  *                   message: "Comentario no encontrado"
  *                   details: ["No se encontró el comentario con ID 507f1f77bcf86cd799439012"]
- * 
+ *
  *     MediaNotFound:
  *       description: Medio no encontrado en el hilo/comentario
  *       content:
@@ -1519,7 +1519,7 @@
  *         format: mongo-id
  *       description: ID del hilo
  *       example: "507f1f77bcf86cd799439011"
- * 
+ *
  *     commentId:
  *       in: path
  *       name: commentId
@@ -1529,7 +1529,7 @@
  *         format: mongo-id
  *       description: ID del comentario
  *       example: "507f1f77bcf86cd799439012"
- * 
+ *
  *     mediaId:
  *       in: path
  *       name: mediaId
@@ -1539,7 +1539,7 @@
  *         format: mongo-id
  *       description: ID del medio (imagen o video)
  *       example: "507f1f77bcf86cd799439013"
- * 
+ *
  *     likeType:
  *       in: path
  *       name: type
@@ -1549,4 +1549,209 @@
  *         enum: [thread, comment]
  *       description: Tipo de elemento a likear (hilo o comentario)
  *       example: "thread"
+ */
+
+// =============================================
+// Sección 11: Esquemas de Proyectos
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Project:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         title:
+ *           type: string
+ *           example: "Plataforma de egresados UVM"
+ *         description:
+ *           type: string
+ *           example: "Desarrollo de una plataforma para conectar egresados de la UVM"
+ *         owner:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         collaborators:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Collaborator'
+ *         status:
+ *           type: string
+ *           enum: [not_started, in_progress, completed, paused, cancelled]
+ *           example: "in_progress"
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["desarrollo", "web", "uvm"]
+ *         media:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ProjectMedia'
+ *         startDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-01-15T00:00:00Z"
+ *         endDate:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-06-30T00:00:00Z"
+ *         isPublic:
+ *           type: boolean
+ *           example: true
+ *         viewCount:
+ *           type: integer
+ *           example: 42
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-01-10T12:30:45Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-01-20T14:15:22Z"
+ *       required:
+ *         - title
+ *         - description
+ *         - owner
+ *         - collaborators
+ *         - status
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProjectResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/SuccessResponse'
+ *         - type: object
+ *           properties:
+ *             data:
+ *               $ref: '#/components/schemas/Project'
+ *
+ *     ProjectListResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         pagination:
+ *           $ref: '#/components/schemas/Pagination'
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Project'
+ *
+ *     ProjectMediaResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/SuccessResponse'
+ *         - type: object
+ *           properties:
+ *             data:
+ *               $ref: '#/components/schemas/ProjectMedia'
+ *
+ *     ProjectMedia:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         mediaType:
+ *           type: string
+ *           enum: [image, video, document]
+ *         url:
+ *           type: string
+ *           format: uri
+ *         publicId:
+ *           type: string
+ *         format:
+ *           type: string
+ *           nullable: true
+ *         dimensions:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             width:
+ *               type: integer
+ *             height:
+ *               type: integer
+ *         duration:
+ *           type: number
+ *           nullable: true
+ *         uploadedBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *
+ *     CollaboratorRequest:
+ *       type: object
+ *       required:
+ *         - username
+ *       properties:
+ *         username:
+ *           type: string
+ *           example: "username"
+ *         role:
+ *           type: string
+ *           enum: [admin, member]
+ *           default: member
+ *
+ *     Collaborator:
+ *       type: object
+ *       properties:
+ *         user:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         role:
+ *           type: string
+ *           enum: [creator, admin, member]
+ *         joinedAt:
+ *           type: string
+ *           format: date-time
+ * 
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProjectUpdateRequest:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           maxLength: 100
+ *           description: Nuevo título del proyecto
+ *           example: "Nuevo nombre del proyecto"
+ *         description:
+ *           type: string
+ *           maxLength: 5000
+ *           description: Nueva descripción del proyecto
+ *           example: "Esta es una descripción actualizada del proyecto"
+ *         status:
+ *           type: string
+ *           enum: [not_started, in_progress, completed, paused, cancelled]
+ *           description: Nuevo estado del proyecto
+ *           example: "in_progress"
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ *             maxLength: 20
+ *           description: Nuevas etiquetas del proyecto
+ *           example: ["desarrollo", "web"]
+ *         startDate:
+ *           type: string
+ *           format: date
+ *           description: Nueva fecha de inicio del proyecto
+ *           example: "2025-06-01"
+ *         endDate:
+ *           type: string
+ *           format: date
+ *           description: Nueva fecha de finalización del proyecto
+ *           example: "2025-12-31"
+ *         isPublic:
+ *           type: boolean
+ *           description: Indica si el proyecto es público o privado
+ *           example: true
  */

@@ -79,9 +79,9 @@ export default class ForumController {
                 fileBase64,
                 `thread-${threadId}`,
                 {
-                    width: 1200,
-                    height: 630,
-                    crop: 'fill',
+                    // width: 1200,
+                    // height: 630,
+                    // crop: 'fill',
                     format: 'webp',
                     folder: 'forum/images',
                     originalName: file.originalname
@@ -149,8 +149,8 @@ export default class ForumController {
                 fileBase64,
                 `thread-video-${threadId}-${Date.now()}`,
                 {
-                    width: 1280,
-                    height: 720,
+                    // width: 1280,
+                    // height: 720,
                     format: 'mp4',
                     folder: 'forum/videos',
                     originalName: file.originalname,
@@ -523,9 +523,9 @@ export default class ForumController {
 
                 if (file.mimetype.startsWith('image/')) {
                     uploadOptions.transformations = {
-                        width: 800,
-                        height: 800,
-                        crop: 'fill',
+                        // width: 800,
+                        // height: 800,
+                        // crop: 'fill',
                         format: 'webp'
                     };
                     const result = await this.fileService.uploadImage(fileBase64, `comment-${Date.now()}`, uploadOptions);
@@ -538,8 +538,8 @@ export default class ForumController {
                 } else if (file.mimetype.startsWith('video/')) {
                     uploadOptions.resource_type = 'video';
                     uploadOptions.transformations = {
-                        width: 1280,
-                        height: 720,
+                        // width: 1280,
+                        // height: 720,
                         format: 'mp4'
                     };
                     const result = await this.fileService.uploadVideo(fileBase64, `comment-${Date.now()}`, uploadOptions);
@@ -816,9 +816,9 @@ export default class ForumController {
                         fileBase64,
                         `comment-${commentId}-${Date.now()}`,
                         {
-                            width: 800,
-                            height: 800,
-                            crop: 'fill',
+                            // width: 800,
+                            // height: 800,
+                            // crop: 'fill',
                             format: 'webp',
                             folder: 'forum/comments'
                         }
@@ -836,8 +836,8 @@ export default class ForumController {
                         fileBase64,
                         `comment-${commentId}-${Date.now()}`,
                         {
-                            width: 1280,
-                            height: 720,
+                            // width: 1280,
+                            // height: 720,
                             format: 'mp4',
                             folder: 'forum/comments'
                         }
