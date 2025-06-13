@@ -6,6 +6,7 @@
  * @requires ./src/config/db
  * @requires ./src/config/logger
  * @requires ./src/services/notification.service
+ * @requires ./src/services/eventScheduler.service
  * 
  * @description
  * Este archivo maneja:
@@ -16,10 +17,10 @@
  */
 
 import dotenv from 'dotenv';
-import { app, httpServer, io } from './src/app.js'; // Importa la app configurada
+import { httpServer, io } from './src/app.js'; // Importa la app configurada
 import connectDB from './src/config/db.js';
 import logger from './src/config/logger.js';
-import NotificationService from './src/services/notification.service.js';
+import EventScheduler from './src/services/eventScheduler.service.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -92,6 +93,23 @@ function configureSocketIO() {
     logger.info('Socket.io configurado correctamente');
 }
 
+function configureServices() {
+    // Configurar el scheduler de eventos
+    const eventScheduler = new EventScheduler(io);
+    eventScheduler.start();
+
+    // Manejar apagado limpio
+    process.on('SIGTERM', () => {
+        eventScheduler.stop();
+        process.exit(0);
+    });
+
+    process.on('SIGINT', () => {
+        eventScheduler.stop();
+        process.exit(0);
+    });
+}
+
 /**
  * @async
  * @function startServer
@@ -109,6 +127,8 @@ async function startServer() {
 
         // Configurar Socket.io
         configureSocketIO();
+
+        configureServices();
 
         // Iniciar el servidor
         httpServer.listen(PORT, () => {

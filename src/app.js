@@ -309,7 +309,5 @@ app.use('/api/notifications', apiLimiter, notificationRoutes());
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores
 
-// Exportar la aplicación
-// export default app;
-// export { app, httpServer };
+// Exportar los componentes principales
 export { app, io, httpServer };

@@ -9,7 +9,7 @@ const NotificationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['like', 'mention', 'thread_mention', 'thread_comment', 'comment_reply', 'thread_activity', 'system']
+        enum: ['like', 'mention', 'thread_mention', 'thread_comment', 'comment_reply', 'thread_activity', 'event_reminder', 'system']
     },
     data: {
         type: {
@@ -32,7 +32,12 @@ const NotificationSchema = new mongoose.Schema({
             parentCommentContent: String,
             replyId: mongoose.Schema.Types.ObjectId,
             replyContent: String,
-            replierUsername: String
+            replierUsername: String,
+            // Campos para recordatorios de eventos
+            eventTitle: String,
+            eventDate: Date,
+            daysUntil: Number,
+            minutesUntil: Number
         },
         required: true
     },

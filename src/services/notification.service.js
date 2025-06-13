@@ -1,5 +1,6 @@
 import Notification from '../models/Notification.js';
 import ForumComment from '../models/ForumComment.js';
+import logger from '../config/logger.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -261,6 +262,56 @@ export default class NotificationService {
                 },
                 fromUser: commenterId
             });
+        }
+    }
+
+    /**
+     * @method sendEventReminder
+     * @description Notifica cuando alguien menciona a un usuario en un comentario
+     */
+    async sendEventReminder({ userId, event, daysUntil = null, minutesUntil = null }) {
+        try {
+            logger.debug('Enviando recordatorio de evento:', {
+                userId,
+                eventId: event._id,
+                eventTitle: event.title,
+                daysUntil,
+                minutesUntil
+            });
+
+            // Convertir minutos a horas
+            const hoursUntil = Math.floor(minutesUntil / 60);
+
+            // Convertir el restante de minutos a minutos
+            const minutesRest = minutesUntil % 60;
+
+            // Generar el mensaje
+            const message = (daysUntil == null || daysUntil == undefined || daysUntil < 1)
+                ? (hoursUntil == null || hoursUntil == undefined || hoursUntil < 1)
+                    ? `El evento "${event.title}" es en ${minutesRest} minuto(s). ¡No te lo pierdas!`
+                    : `El evento "${event.title}" es en ${hoursUntil} hora(s). ¡No te lo pierdas!`
+                : `El evento "${event.title}" es en ${daysUntil} día(s). ¡No te lo pierdas!`;
+
+            return this.createNotification({
+                userId,
+                type: 'event_reminder',
+                data: {
+                    eventId: event._id,
+                    eventTitle: event.title,
+                    startDate: event.startDate,
+                    message,
+                    daysUntil,
+                    minutesUntil
+                },
+                fromUser: null // Es una notificación del sistema
+            });
+        } catch (error) {
+            this.logger.error('Error al enviar recordatorio de evento:', {
+                error: error.message,
+                stack: !isProduction ? error.stack : undefined,
+                action: 'sendEventReminder'
+            });
+            throw error;
         }
     }
 }
