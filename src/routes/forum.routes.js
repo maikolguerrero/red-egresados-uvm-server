@@ -14,9 +14,9 @@ import {
     idSchema
 } from '../schemas/forum.schemas.js';
 
-export default function forumRoutes(fileService) {
+export default function forumRoutes(fileService, notificationService) {
     const router = express.Router();
-    const forumController = new ForumController(fileService);
+    const forumController = new ForumController(fileService, notificationService);
 
     /**
      * @swagger

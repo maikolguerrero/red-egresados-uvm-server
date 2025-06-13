@@ -2,6 +2,8 @@
  * @fileoverview Configuración principal de la aplicación Express
  * @module app
  * @requires express
+ * @requires http
+ * @requires socket.io
  * @requires cors
  * @requires cookie-parser
  * @requires compression
@@ -9,13 +11,17 @@
  * @requires express-rate-limit
  * @requires nodemailer
  * @requires ./services/email.service
+ * @requires ./services/file.service
+ * @requires ./services/notification.service
  * @requires ./middlewares/errorHandler
  * @requires ./middlewares/requestId
  * @requires ./routes/auth.routes
  * @requires ./routes/alumni.routes
  * @requires ./routes/event.routes
  * @requires ./routes/forum.routes
+ * @requires ./routes/notification.routes
  * @requires ./routes/project.routes
+ * @requires ./routes/notification.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -40,6 +46,8 @@
  */
 
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
@@ -48,6 +56,7 @@ import rateLimit from 'express-rate-limit';
 import nodemailer from 'nodemailer';
 import EmailService from './services/email.service.js';
 import FileService from './services/file.service.js';
+import NotificationService from './services/notification.service.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
@@ -55,9 +64,16 @@ import alumniRoutes from './routes/alumni.routes.js';
 import eventRoutes from './routes/event.routes.js';
 import forumRoutes from './routes/forum.routes.js';
 import projectRoutes from './routes/project.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
+
+/**
+ * @constant {boolean} isProduction
+ * @description Indica si la aplicación se ejecuta en entorno de producción
+ */
+const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * @constant {express.Application} app
@@ -66,10 +82,22 @@ import swaggerDocs from './config/swagger.js';
 const app = express();
 
 /**
- * @constant {boolean} isProduction
- * @description Indica si la aplicación se ejecuta en entorno de producción
+ * @constant {http.Server} httpServer
+ * @description Servidor HTTP creado a partir de la app Express
  */
-const isProduction = process.env.NODE_ENV === 'production';
+const httpServer = createServer(app);
+
+/**
+ * @constant {socket.io.Server} io
+ * @description Instancia de Socket.io configurada
+ */
+const io = new Server(httpServer, {
+    cors: {
+        origin: isProduction ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000'],
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
 
 /**
  * @function compression
@@ -213,6 +241,12 @@ const emailService = new EmailService(transporter, logger);
  */
 const fileService = new FileService(logger);
 
+/**
+ * @constant {NotificationService} notificationService
+ * @description Instancia del servicio de notificaciones con logger configurado
+ */
+const notificationService = new NotificationService(io, logger);
+
 // Middlewares principales
 app.use(requestIdMiddleware); // Generar ID único para cada solicitud
 app.use(cors(corsOptions));   // Habilitar CORS con configuración personalizada
@@ -242,7 +276,7 @@ app.use('/api/auth', authLimiter, authRoutes(emailService));
  * @description Rutas de egresados con limitador de tasa específico
  * @see {@link ./routes/alumni.routes.js}
  */
-app.use('/api/alumni', apiLimiter , alumniRoutes(fileService));
+app.use('/api/alumni', apiLimiter, alumniRoutes(fileService));
 
 /**
  * @route /api/events
@@ -256,7 +290,7 @@ app.use('/api/events', apiLimiter, eventRoutes(fileService));
  * @description Rutas de foro con limitador de tasa específico
  * @see {@link ./routes/forum.routes.js}
  */
-app.use('/api/forum', apiLimiter, forumRoutes(fileService));
+app.use('/api/forum', apiLimiter, forumRoutes(fileService, notificationService));
 
 /**
  * @route /api/projects
@@ -265,8 +299,17 @@ app.use('/api/forum', apiLimiter, forumRoutes(fileService));
  */
 app.use('/api/projects', apiLimiter, projectRoutes(fileService));
 
+/**
+ * @route /api/notifications
+ * @description Rutas de notificaciones con limitador de tasa específico
+ * @see {@link ./routes/notification.routes.js}
+ */
+app.use('/api/notifications', apiLimiter, notificationRoutes());
+
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores
 
 // Exportar la aplicación
-export default app;
+// export default app;
+// export { app, httpServer };
+export { app, io, httpServer };

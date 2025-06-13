@@ -209,3 +209,65 @@
  *           role: "member"
  *           joinedAt: "2025-05-28T16:45:30Z"
  */
+
+// =============================================
+// Sección 12: Ejemplos de Notificaciones
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   examples:
+ *     NotificationList:
+ *       summary: Ejemplo de lista de notificaciones
+ *       value:
+ *         success: true
+ *         data:
+ *           - id: "507f1f77bcf86cd799439011"
+ *             type: "mention"
+ *             data:
+ *               message: "@jperez te mencionó en un comentario"
+ *               threadId: "507f1f77bcf86cd799439013"
+ *               threadTitle: "Oportunidades laborales en TI"
+ *               commentId: "507f1f77bcf86cd799439014"
+ *               commentContent: "Gracias por compartir, @mrodriguez!"
+ *             fromUser:
+ *               id: "507f1f77bcf86cd799439015"
+ *               username: "jperez"
+ *               profilePicture: "https://example.com/profile.jpg"
+ *             read: false
+ *             createdAt: "2025-05-28T16:45:30Z"
+ *           - id: "507f1f77bcf86cd799439012"
+ *             type: "like"
+ *             data:
+ *               message: "A @lgonzalez le gustó tu comentario"
+ *               threadId: "507f1f77bcf86cd799439016"
+ *               threadTitle: "Evento de egresados 2025"
+ *               commentId: "507f1f77bcf86cd799439017"
+ *               likerUsername: "lgonzalez"
+ *             fromUser:
+ *               id: "507f1f77bcf86cd799439018"
+ *               username: "lgonzalez"
+ *               profilePicture: "https://example.com/profile2.jpg"
+ *             read: true
+ *             createdAt: "2025-05-28T14:30:15Z"
+ *         pagination:
+ *           total: 15
+ *           page: 1
+ *           pages: 2
+ *           limit: 10
+ *
+ *     NotificationMarkedAsRead:
+ *       summary: Ejemplo de notificación marcada como leída
+ *       value:
+ *         success: true
+ *         data:
+ *           id: "507f1f77bcf86cd799439011"
+ *           read: true
+ *           updatedAt: "2025-05-28T17:00:00Z"
+ *
+ *     NotificationDeleted:
+ *       summary: Ejemplo de notificación eliminada
+ *       value:
+ *         success: true
+ *         message: "Notificación eliminada"
+ */

@@ -5,6 +5,7 @@
  * @requires ./src/app
  * @requires ./src/config/db
  * @requires ./src/config/logger
+ * @requires ./src/services/notification.service
  * 
  * @description
  * Este archivo maneja:
@@ -15,9 +16,10 @@
  */
 
 import dotenv from 'dotenv';
-import app from './src/app.js'; // Importa la app configurada
+import { app, httpServer, io } from './src/app.js'; // Importa la app configurada
 import connectDB from './src/config/db.js';
 import logger from './src/config/logger.js';
+import NotificationService from './src/services/notification.service.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -53,6 +55,44 @@ const SERVER_RETRY_DELAY = 10000; // 10 segundos entre intentos
 let serverRetryCount = 0;
 
 /**
+ * @function configureSocketIO
+ * @description Configura los eventos y manejadores de Socket.io
+ */
+function configureSocketIO() {
+    // Manejar la conexión del socket
+    io.on('connection', (socket) => {
+        logger.info('Nuevo cliente conectado:', { socketId: socket.id });
+
+        // Autenticación del socket
+        socket.on('authenticate', (userId) => {
+            if (userId) {
+                socket.join(`user_${userId}`);
+                logger.info(`Usuario ${userId} suscrito a notificaciones`, {
+                    socketId: socket.id,
+                    userId
+                });
+            }
+        });
+
+        // Manejar la desconexión del socket
+        socket.on('disconnect', () => {
+            logger.info('Cliente desconectado:', { socketId: socket.id });
+        });
+
+        // Manejar errores del socket
+        socket.on('error', (error) => {
+            logger.error('Error en Socket.io:', {
+                socketId: socket.id,
+                error: error.message,
+                stack: !isProduction ? error.stack : undefined
+            });
+        });
+    });
+
+    logger.info('Socket.io configurado correctamente');
+}
+
+/**
  * @async
  * @function startServer
  * @description Inicia el servidor con manejo de errores y reintentos
@@ -67,15 +107,24 @@ async function startServer() {
     try {
         await connectDB();
 
-        const server = app.listen(PORT, () => {
+        // Configurar Socket.io
+        configureSocketIO();
+
+        // Iniciar el servidor
+        httpServer.listen(PORT, () => {
             logger.info(`Servidor escuchando en puerto ${PORT}`);
             serverRetryCount = 0; // Resetear contador al éxito
         });
 
-        server.on('error', (err) => {
-            logger.error('Error en el servidor:', err);
+        // Manejar errores del servidor
+        httpServer.on('error', (err) => {
+            logger.error('Error en el servidor:', {
+                error: err.message,
+                stack: !isProduction ? err.stack : undefined
+            });
         });
 
+        // Manejar rechazos no manejados
         process.on('unhandledRejection', (err) => {
             logger.error('Unhandled Rejection:', {
                 error: err.message,

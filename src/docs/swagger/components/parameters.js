@@ -64,3 +64,21 @@
  *       description: ID del proyecto
  *       example: "507f1f77bcf86cd799439011"
  */
+
+// =============================================
+// Sección 12: Parámetros de Notificaciones
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   parameters:
+ *     notificationId:
+ *       in: path
+ *       name: id
+ *       required: true
+ *       schema:
+ *         type: string
+ *         format: mongo-id
+ *       description: ID de la notificación
+ *       example: "507f1f77bcf86cd799439011"
+ */

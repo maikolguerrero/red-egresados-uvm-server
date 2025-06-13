@@ -284,3 +284,40 @@
  *           schema:
  *             $ref: '#/components/schemas/Collaborator'
  */
+
+// =============================================
+// Sección 12: Respuestas de Notificaciones
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     NotificationSuccess:
+ *       description: Operación con notificación exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Notification'
+ *
+ *     NotificationListSuccess:
+ *       description: Lista de notificaciones obtenida exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NotificationListResponse'
+ *
+ *     NotificationNotFound:
+ *       description: Notificación no encontrada
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "NOTIFICATION_404"
+ *                   message: "Notificación no encontrada"
+ *                   details: ["No se encontró la notificación con ID 507f1f77bcf86cd799439011"]
+ */

@@ -1708,7 +1708,7 @@
  *         joinedAt:
  *           type: string
  *           format: date-time
- * 
+ *
  */
 
 /**
@@ -1754,4 +1754,102 @@
  *           type: boolean
  *           description: Indica si el proyecto es público o privado
  *           example: true
+ */
+
+// =============================================
+// Sección 12: Esquemas de Notificaciones
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Notification:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *         user:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439012"
+ *         type:
+ *           type: string
+ *           enum: [like, mention, thread_comment, comment_reply, thread_activity]
+ *           example: "mention"
+ *         data:
+ *           type: object
+ *           properties:
+ *             message:
+ *               type: string
+ *               example: "@jperez te mencionó en un comentario"
+ *             threadId:
+ *               type: string
+ *               format: mongo-id
+ *               example: "507f1f77bcf86cd799439013"
+ *             threadTitle:
+ *               type: string
+ *               example: "Oportunidades laborales en TI"
+ *             commentId:
+ *               type: string
+ *               format: mongo-id
+ *               example: "507f1f77bcf86cd799439014"
+ *             commentContent:
+ *               type: string
+ *               example: "Gracias por compartir, @mrodriguez!"
+ *             likerUsername:
+ *               type: string
+ *               example: "jperez"
+ *             commenterUsername:
+ *               type: string
+ *               example: "mrodriguez"
+ *             replierUsername:
+ *               type: string
+ *               example: "lgonzalez"
+ *         fromUser:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         read:
+ *           type: boolean
+ *           example: false
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-28T16:45:30Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-05-28T16:45:30Z"
+ *
+ *     NotificationListResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Notification'
+ *         pagination:
+ *           $ref: '#/components/schemas/Pagination'
+ *
+ *     NotificationUpdateResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           $ref: '#/components/schemas/Notification'
+ *
+ *     NotificationDeleteResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: "Notificación eliminada"
  */

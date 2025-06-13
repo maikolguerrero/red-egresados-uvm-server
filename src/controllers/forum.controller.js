@@ -1,5 +1,6 @@
 import ForumThread from '../models/ForumThread.js';
 import ForumComment from '../models/ForumComment.js';
+import User from '../models/User.js';
 import AppError from '../middlewares/AppError.js';
 
 export default class ForumController {
@@ -10,8 +11,9 @@ export default class ForumController {
      * const fileService = new FileService();
      * const eventController = new EventController(fileService);
      */
-    constructor(fileService) {
+    constructor(fileService, notificationService) {
         this.fileService = fileService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -488,7 +490,8 @@ export default class ForumController {
             const { threadId } = req.params;
             const { content, parentCommentId } = req.body;
             const file = req.file;
-            const author = req.user.id;
+            const authorId = req.user.id;
+            const authorUsername = req.user.username;
 
             // Validar hilo
             const thread = await ForumThread.findById(threadId);
@@ -556,7 +559,7 @@ export default class ForumController {
             // Crear el comentario
             const comment = await ForumComment.create({
                 content,
-                author,
+                author: authorId,
                 thread: threadId,
                 parentComment: parentCommentId,
                 media: mediaData
@@ -569,6 +572,67 @@ export default class ForumController {
             const populatedComment = await ForumComment.findById(comment._id)
                 .populate('author', 'username profilePicture firstName lastName')
                 .populate('mentions', 'username');
+
+            // Obtener autor del hilo
+            const threadAuthorId = thread.author;
+
+            // Detectar menciones primero
+            const mentionRegex = /@([a-zA-Z0-9_]{4,20})/g;
+            const mentionedUsernames = new Set([...content.matchAll(mentionRegex)].map(m => m[1]));
+
+            // Verificar si el autor del hilo fue mencionado
+            const threadAuthor = await User.findById(threadAuthorId).select('username').lean();
+            const isThreadAuthorMentioned = mentionedUsernames.has(threadAuthor.username);
+
+            // Verificar si el autor del comentario es el autor del hilo
+            const isAuthorTheThreadAuthor = authorId.toString() === threadAuthorId.toString();
+
+            // Solo notificar comentario si NO mencionaron al autor Y no es el propio autor
+            if (!isThreadAuthorMentioned && !isAuthorTheThreadAuthor) {
+                if (parentCommentId) {
+                    // Obtener información completa
+                    const parentComment = await ForumComment.findById(parentCommentId)
+                        .select('author content thread')
+                        .populate('author', 'username')
+                        .populate('thread', 'title author')
+                        .lean();
+
+                    // Lógica para respuestas a comentarios (existente)
+                    await this.notificationService.sendCommentReplyNotification({
+                        parentComment,
+                        reply: comment,
+                        replierId: authorId,
+                        replierUsername: authorUsername
+                    });
+                } else {
+                    await this.notificationService.sendThreadCommentNotification({
+                        thread,
+                        comment,
+                        commenterId: authorId,
+                        commenterUsername: authorUsername
+                    });
+                }
+            }
+
+            // Notificar menciones (incluye al autor del hilo si fue mencionado)
+            if (mentionedUsernames.size > 0) {
+                const mentionedUsers = await User.find({
+                    username: { $in: Array.from(mentionedUsernames) }
+                });
+
+                await Promise.all(mentionedUsers.map(async user => {
+                    // No notificar si el usuario se menciona a sí mismo
+                    if (!user._id.equals(authorId)) {
+                        await this.notificationService.sendMentionNotification({
+                            mentionedUserId: user._id,
+                            comment,
+                            thread,
+                            commenterId: authorId,
+                            commenterUsername: authorUsername
+                        });
+                    }
+                }));
+            }
 
             res.status(201).json({
                 success: true,
@@ -588,6 +652,7 @@ export default class ForumController {
         try {
             const { type, id } = req.params;
             const userId = req.user.id;
+            const username = req.user.username;
 
             let Model;
             if (type === 'thread') Model = ForumThread;
@@ -609,6 +674,18 @@ export default class ForumController {
             }
 
             await item.save();
+
+            // Notificar al autor del hilo/comentario (excepto si es el mismo usuario)
+            if (action === 'liked' && !item.author.equals(userId)) {
+                await this.notificationService.sendLikeNotification({
+                    targetUserId: item.author,
+                    item,
+                    likerId: userId,
+                    likerUsername: username,
+                    targetType: type,
+                    targetId: item._id
+                });
+            }
 
             res.json({
                 success: true,
