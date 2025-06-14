@@ -9,7 +9,18 @@ const NotificationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['like', 'mention', 'thread_mention', 'thread_comment', 'comment_reply', 'thread_activity', 'event_reminder', 'system']
+        enum: [
+            'like',
+            'mention',
+            'thread_mention',
+            'thread_comment',
+            'comment_reply',
+            'thread_activity',
+            'event_reminder',
+            'project_join_request',
+            'project_request_update',
+            'system'
+        ]
     },
     data: {
         type: {
@@ -37,7 +48,12 @@ const NotificationSchema = new mongoose.Schema({
             eventTitle: String,
             eventDate: Date,
             daysUntil: Number,
-            minutesUntil: Number
+            minutesUntil: Number,
+            // Campos para solicitudes de proyectos
+            projectId: mongoose.Schema.Types.ObjectId,
+            requesterUsername: String,
+            requestMessage: String,
+            reviewMessage: String
         },
         required: true
     },

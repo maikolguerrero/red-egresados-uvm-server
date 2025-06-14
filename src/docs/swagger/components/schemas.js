@@ -1709,6 +1709,27 @@
  *           type: string
  *           format: date-time
  *
+ *     UpdateRoleRequest:
+ *       type: object
+ *       required:
+ *         - username
+ *         - newRole
+ *       properties:
+ *         username:
+ *           type: string
+ *           example: "johndoe"
+ *         newRole:
+ *           type: string
+ *           enum: [admin, member]
+ *           example: "admin"
+ *
+ *     UpdateRoleResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         data:
+ *           $ref: '#/components/schemas/Collaborator'
  */
 
 /**
@@ -1754,6 +1775,71 @@
  *           type: boolean
  *           description: Indica si el proyecto es público o privado
  *           example: true
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProjectRequest:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         project:
+ *           type: string
+ *           format: mongo-id
+ *         user:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         status:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         message:
+ *           type: string
+ *         reviewedBy:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         reviewedAt:
+ *           type: string
+ *           format: date-time
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProjectRequestResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         data:
+ *           $ref: '#/components/schemas/ProjectRequest'
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     CancelRequestResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         message:
+ *           type: string
+ *         data:
+ *           type: object
+ *           properties:
+ *             cancelledRequestId:
+ *               type: string
+ *               format: mongo-id
  */
 
 // =============================================

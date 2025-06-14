@@ -93,7 +93,6 @@ class EventScheduler {
                 now.getMonth(),
                 now.getDate(),
                 this.scheduledHour, 0, 0
-                // 14, 35, 0
             );
 
             // Si ya pasó las 8 AM hoy, programar para mañana
@@ -111,9 +110,8 @@ class EventScheduler {
                 );
             }, initialDelay);
 
-            logger.info(`Programado para ejecutarse diariamente a las 8:00 AM (en ${Math.round(initialDelay / 1000 / 60 / 60)} horas)`);
+            logger.info(`Event Scheduler (Recordatorios de eventos) programado para ejecutarse diariamente a las ${this.scheduledHour}:00 AM (en ${Math.round(initialDelay / 1000 / 60 / 60)} horas)`);
         } else {
-            console.log("Testing");
             // Desarrollo: ejecutar cada 30 segundos
             this.interval = setInterval(
                 () => this.checkUpcomingEvents(),

@@ -1,10 +1,12 @@
 import Project from '../models/Project.js';
+import ProjectRequest from '../models/ProjectRequest.js';
 import User from '../models/User.js';
 import AppError from '../middlewares/AppError.js';
 
 export default class ProjectController {
-    constructor(fileService) {
+    constructor(fileService, notificationService) {
         this.fileService = fileService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -258,6 +260,212 @@ export default class ProjectController {
     };
 
     /**
+     * @method requestToJoin
+     * @description Envía una solicitud para unirse a un proyecto
+     */
+    requestToJoin = async (req, res, next) => {
+        try {
+            const { id: projectId } = req.params;
+            const { id: userId, username } = req.user;
+            const { message } = req.body;
+
+            // Verificar que el proyecto existe y es público
+            const project = await Project.findById(projectId);
+            if (!project || !project.isPublic) {
+                throw new AppError('Proyecto no encontrado o no es público', 404, 'PROJECT_NOT_PUBLIC');
+            }
+
+            // Verificar que el usuario no es el owner (dueño)
+            if (project.owner.toString() === userId) {
+                throw new AppError('Eres el dueño de este proyecto', 400, 'USER_IS_OWNER');
+            }
+
+            // Verificar que el usuario no es ya colaborador
+            const isAlreadyCollaborator = project.collaborators.some(
+                collab => collab.user.toString() === userId
+            );
+            if (isAlreadyCollaborator) {
+                throw new AppError('Ya eres colaborador de este proyecto', 400, 'ALREADY_COLLABORATOR');
+            }
+
+            // Verificar que no hay una solicitud pendiente
+            const existingRequest = await ProjectRequest.findOne({
+                project: projectId,
+                user: userId,
+                status: 'pending'
+            });
+            if (existingRequest) {
+                throw new AppError('Ya tienes una solicitud pendiente para este proyecto', 400, 'REQUEST_PENDING');
+            }
+
+            // Crear la solicitud
+            const request = await ProjectRequest.create({
+                project: projectId,
+                user: userId,
+                message
+            });
+
+            // Notificar a los admins del proyecto
+            await this.notificationService.sendProjectJoinRequest({
+                project,
+                requesterId: userId,
+                requesterUsername: username,
+                message
+            });
+
+            res.status(201).json({
+                success: true,
+                data: request
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method cancelRequest
+     * @description Permite a un usuario cancelar su propia solicitud pendiente
+     */
+    cancelRequest = async (req, res, next) => {
+        try {
+            const { id: projectId } = req.params;
+            const { id: userId } = req.user;
+
+            // 1. Buscar la solicitud pendiente del usuario
+            const request = await ProjectRequest.findOneAndDelete({
+                project: projectId,
+                user: userId,
+                status: 'pending'
+            });
+
+            // 2. Verificar que existía una solicitud
+            if (!request) {
+                throw new AppError(
+                    'No tienes una solicitud pendiente para este proyecto',
+                    404,
+                    'NO_PENDING_REQUEST'
+                );
+            }
+
+            res.json({
+                success: true,
+                message: 'Solicitud cancelada exitosamente',
+                data: {
+                    cancelledRequestId: request._id
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method respondToRequest
+     * @description Responde a una solicitud de unión (aprobación/rechazo)
+     */
+    respondToRequest = async (req, res, next) => {
+        try {
+            const { requestId } = req.params;
+            const { id: userId } = req.user;
+            const { status, message } = req.body;
+
+            // Obtener la solicitud con datos del proyecto y usuario
+            const request = await ProjectRequest.findById(requestId)
+                .populate('project', 'title collaborators')
+                .populate('user', 'username');
+
+            if (!request) {
+                throw new AppError('Solicitud no encontrada', 404, 'REQUEST_NOT_FOUND');
+            }
+
+            // Verificar que el usuario que responde es admin del proyecto
+            const isAdmin = request.project.collaborators.some(
+                collab => collab.user.toString() === userId && ['admin', 'creator'].includes(collab.role)
+            );
+            if (!isAdmin) {
+                throw new AppError('No autorizado para responder a esta solicitud', 403, 'FORBIDDEN');
+            }
+
+            // Verificar que la solicitud no ha sido respondida antes
+            if (request.status !== 'pending') {
+                throw new AppError('Esta solicitud ya ha sido respondida', 400, 'REQUEST_ALREADY_RESPONDED');
+            }
+
+            // Actualizar la solicitud
+            request.status = status;
+            request.reviewedBy = userId;
+            request.reviewedAt = new Date();
+            request.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días en milisegundos para eliminar
+            await request.save();
+
+            // Si fue aprobada, añadir como colaborador
+            if (status === 'approved') {
+                request.project.collaborators.push({
+                    user: request.user._id,
+                    role: 'member',
+                    joinedAt: new Date()
+                });
+                await request.project.save();
+            }
+
+            // Notificar al solicitante
+            await this.notificationService.sendProjectRequestUpdate({
+                requesterId: request.user._id,
+                project: request.project,
+                status,
+                reviewerId: userId,
+                reviewMessage: message
+            });
+
+            res.json({
+                success: true,
+                data: request
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method getProjectRequests
+     * @description Obtiene las solicitudes de un proyecto (para admins)
+     */
+    getProjectRequests = async (req, res, next) => {
+        try {
+            const { id: projectId } = req.params;
+            const { id: userId } = req.user;
+            const { status } = req.query;
+
+            // Verificar que el usuario es admin del proyecto
+            const project = await Project.findOne({
+                _id: projectId,
+                'collaborators.user': userId,
+                'collaborators.role': { $in: ['admin', 'creator'] }
+            });
+
+            if (!project) {
+                throw new AppError('No autorizado para ver solicitudes de este proyecto', 403, 'FORBIDDEN');
+            }
+
+            // Construir filtro
+            const filter = { project: projectId };
+            if (status) filter.status = status;
+
+            const requests = await ProjectRequest.find(filter)
+                .populate('user', 'username profilePicture')
+                .populate('reviewedBy', 'username')
+                .sort({ createdAt: -1 });
+
+            res.json({
+                success: true,
+                data: requests
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
      * @method addCollaborator
      * @description Añade un colaborador al proyecto (solo owner o admin)
      */
@@ -351,7 +559,7 @@ export default class ProjectController {
             }
             const userId = userToAdd._id.toString();
 
-            // Verificar que no es el owner
+            // Verificar que no es el owner (dueño)
             if (project.owner.toString() === userId) {
                 throw new AppError('No se puede eliminar al owner', 400, 'CANNOT_REMOVE_OWNER');
             }
@@ -360,6 +568,11 @@ export default class ProjectController {
             const collaborator = project.collaborators.find(collab => collab.user.toString() === userId);
             if (!collaborator) {
                 throw new AppError('Colaborador no encontrado', 404, 'COLLABORATOR_NOT_FOUND');
+            }
+
+            // Verificar que el usuario no se esta intentando eliminar a si mismo
+            if (collaborator.user._id.toString() === currentUserId) {
+                throw new AppError('No se puede eliminar a si mismo', 400, 'CANNOT_REMOVE_SELF');
             }
 
             // Eliminar colaborador
@@ -379,54 +592,98 @@ export default class ProjectController {
     };
 
     /**
-     * @method joinProject
-     * @description Permite a un usuario unirse a un proyecto público
+     * @method updateCollaboratorRole
+     * @description Cambia el rol de un colaborador del proyecto (solo owner o admin)
      */
-    joinProject = async (req, res, next) => {
+    updateCollaboratorRole = async (req, res, next) => {
         try {
             const { id: projectId } = req.params;
-            const { id: userId } = req.user;
+            const { username, newRole } = req.body;
+            const { id: currentUserId } = req.user;
 
-            // Verificar que el proyecto existe y es público
-            const project = await Project.findOne({
-                _id: projectId,
-                isPublic: true
-            });
-
+            // 1. Verificar que el proyecto existe
+            const project = await Project.findById(projectId);
             if (!project) {
-                throw new AppError('Proyecto no encontrado o no es público', 404, 'PROJECT_NOT_PUBLIC');
+                throw new AppError('Proyecto no encontrado', 404, 'PROJECT_NOT_FOUND');
             }
 
-            // Verificar que el usuario no es el owner
-            if (project.owner.toString() === userId) {
-                throw new AppError('Eres el owner de este proyecto', 400, 'USER_IS_OWNER');
+            // 2. Verificar que el usuario actual tiene permisos (owner o admin)
+            const currentUserRole = this.getUserRoleInProject(project, currentUserId);
+            if (!['owner', 'admin'].includes(currentUserRole)) {
+                throw new AppError('No autorizado para cambiar roles', 403, 'FORBIDDEN');
             }
 
-            // Verificar que el usuario no es ya colaborador
-            const isAlreadyCollaborator = project.collaborators.some(
-                collab => collab.user.toString() === userId
+            // 3. Verificar que el usuario objetivo existe
+            const userToUpdate = await User.findOne({ username: username.toLowerCase() });
+            if (!userToUpdate) {
+                throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+            }
+
+            // 4. Verificar que no es el owner (el owner no puede cambiar su rol)
+            if (project.owner.toString() === userToUpdate.id.toString()) {
+                throw new AppError('No se puede cambiar el rol del owner', 400, 'CANNOT_CHANGE_OWNER_ROLE');
+            }
+
+            // 5. Verificar que el usuario es colaborador del proyecto
+            const collaboratorIndex = project.collaborators.findIndex(
+                c => c.user.toString() === userToUpdate.id.toString()
             );
-
-            if (isAlreadyCollaborator) {
-                throw new AppError('Ya eres colaborador de este proyecto', 400, 'ALREADY_COLLABORATOR');
+            if (collaboratorIndex === -1) {
+                throw new AppError('El usuario no es colaborador de este proyecto', 400, 'NOT_A_COLLABORATOR');
             }
 
-            // Añadir como colaborador con rol member
-            project.collaborators.push({
-                user: userId,
-                role: 'member',
-                joinedAt: new Date()
-            });
+            // 6. Verificar que el usuario no se esta intentando cambiar su propio rol
+            if (project.collaborators[collaboratorIndex].user._id.toString() === currentUserId) {
+                throw new AppError('No se puede cambiar el rol del usuario actual', 400, 'CANNOT_CHANGE_SELF_ROLE');
+            }
 
+            // 7. Verificar que no es un intento de cambiar al mismo rol
+            if (project.collaborators[collaboratorIndex].role === newRole) {
+                throw new AppError('El usuario ya tiene este rol', 400, 'SAME_ROLE');
+            }
+
+            // 8. Actualizar el rol
+            project.collaborators[collaboratorIndex].role = newRole;
             await project.save();
+
+            // 9. Poblar datos para la respuesta
+            await project.populate('collaborators.user', 'username profilePicture firstName lastName');
+
+            // 10. Convertir a objeto plano
+            const projectObject = project.toObject();
+
+            // 11. Registrar la acción
+            req.logger.info('Rol de colaborador actualizado', {
+                action: 'update_collaborator_role',
+                projectId,
+                adminId: currentUserId,
+                targetUserId: userToUpdate.id,
+                newRole
+            });
 
             res.json({
                 success: true,
-                message: 'Te has unido al proyecto exitosamente'
+                data: projectObject.collaborators[collaboratorIndex]
             });
         } catch (error) {
             next(error);
         }
+    };
+
+    /**
+     * @method getUserRoleInProject
+     * @description Obtiene el rol del usuario en el proyecto
+     */
+    getUserRoleInProject = (project, userId) => {
+        if (project.owner.toString() === userId.toString()) {
+            return 'owner';
+        }
+
+        const collaborator = project.collaborators.find(
+            c => c.user.toString() === userId.toString()
+        );
+
+        return collaborator ? collaborator.role : null;
     };
 
     /**
@@ -490,8 +747,6 @@ export default class ProjectController {
                     { 'collaborators.user': userId }
                 ]
             });
-
-            console.log(project);
 
             if (!project) {
                 throw new AppError('No autorizado para añadir medios', 403, 'FORBIDDEN');

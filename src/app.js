@@ -297,7 +297,7 @@ app.use('/api/forum', apiLimiter, forumRoutes(fileService, notificationService))
  * @description Rutas de proyectos con limitador de tasa específico
  * @see {@link ./routes/project.routes.js}
  */
-app.use('/api/projects', apiLimiter, projectRoutes(fileService));
+app.use('/api/projects', apiLimiter, projectRoutes(fileService, notificationService));
 
 /**
  * @route /api/notifications

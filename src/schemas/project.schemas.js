@@ -83,9 +83,6 @@ export const projectQuerySchema = yup.object().shape({
     tagMatch: yup.string()
         .oneOf(['all', 'any', undefined])
         .default('any'),
-    // userId: yup.string()
-    //     .matches(/^[0-9a-fA-F]{24}$/, 'ID de usuario no válido')
-    //     .optional()
     username: yup.string()
         .max(20, 'El nombre de usuario no puede exceder 20 caracteres')
         .optional()
@@ -100,9 +97,6 @@ export const projectIdSchema = yup.object().shape({
 
 // Esquema para colaboradores
 export const collaboratorSchema = yup.object().shape({
-    // userId: yup.string()
-    //     .required()
-    //     .matches(/^[0-9a-fA-F]{24}$/, 'ID de usuario no válido'),
     username: yup.string()
         .max(20, 'El nombre de usuario no puede exceder 20 caracteres')
         .required(),
@@ -110,3 +104,34 @@ export const collaboratorSchema = yup.object().shape({
         .oneOf(['admin', 'member'], 'Rol no válido')
         .default('member')
 });
+
+// Esquema para ID de solicitud
+export const requestIdSchema = yup.object().shape({
+    requestId: yup.string()
+        .required()
+        .matches(/^[0-9a-fA-F]{24}$/, 'ID no válido')
+});
+
+export const messageSchema = yup.string()
+    .max(500, 'Máximo 500 caracteres')
+    .optional();
+
+export const requestSchema = yup.object().shape({
+    message: messageSchema
+});
+
+export const respondRequestSchema = yup.object().shape({
+    status: yup.string()
+        .oneOf(['approved', 'rejected'], 'Estado no válido')
+        .required(),
+    message: messageSchema
+});
+
+export const updateRoleSchema = yup.object().shape({
+    username: yup.string()
+      .required('El nombre de usuario es requerido')
+      .max(20, 'El nombre de usuario no puede exceder 20 caracteres'),
+    newRole: yup.string()
+      .required('El nuevo rol es requerido')
+      .oneOf(['admin', 'member'], 'Rol no válido')
+  });

@@ -314,4 +314,73 @@ export default class NotificationService {
             throw error;
         }
     }
+
+    /**
+     * @method sendProjectJoinRequest
+     * @description Notifica a los admins del proyecto sobre una nueva solicitud de unión
+     */
+    async sendProjectJoinRequest({ project, requesterId, requesterUsername, message }) {
+        try {
+            const admins = project.collaborators
+                .filter(c => c.role === 'admin' || c.role === 'creator')
+                .map(c => c.user._id);
+
+            // Crear notificaciones para cada admin
+            const notifications = admins.map(adminId =>
+                this.createNotification({
+                    userId: adminId,
+                    type: 'project_join_request',
+                    data: {
+                        projectId: project._id,
+                        message: `@${requesterUsername} quiere unirse a tu proyecto "${project.title}"`,
+                        requesterUsername,
+                        requestMessage: message
+                    },
+                    fromUser: requesterId
+                })
+            );
+
+            return Promise.all(notifications);
+        } catch (error) {
+            this.logger.error('Error sending project join request notification:', {
+                error: error.message,
+                stack: !isProduction ? error.stack : undefined,
+                action: 'sendProjectJoinRequest'
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * @method sendProjectRequestUpdate
+     * @description Notifica al solicitante sobre el estado de su solicitud
+     */
+    async sendProjectRequestUpdate({ requesterId, project, status, reviewerId, reviewMessage }) {
+        
+        try {
+            const statusMessage = {
+                approved: `Tu solicitud para unirte a "${project.title}" ha sido aprobada`,
+                rejected: `Tu solicitud para unirte a "${project.title}" ha sido rechazada`
+            }[status];
+
+            return this.createNotification({
+                userId: requesterId,
+                type: 'project_request_update',
+                data: {
+                    projectId: project._id,
+                    message: statusMessage,
+                    status,
+                    reviewMessage
+                },
+                fromUser: reviewerId
+            });
+        } catch (error) {
+            this.logger.error('Error sending project request update notification:', {
+                error: error.message,
+                stack: !isProduction ? error.stack : undefined,
+                action: 'sendProjectRequestUpdate'
+            });
+            throw error;
+        }
+    }
 }

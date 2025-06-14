@@ -7,12 +7,16 @@ import {
     projectUpdateSchema,
     projectQuerySchema,
     projectIdSchema,
-    collaboratorSchema
+    collaboratorSchema,
+    updateRoleSchema,
+    requestIdSchema,
+    requestSchema,
+    respondRequestSchema
 } from '../schemas/project.schemas.js';
 
-export default function projectRoutes(fileService) {
+export default function projectRoutes(fileService, notificationService) {
     const router = express.Router();
-    const projectController = new ProjectController(fileService);
+    const projectController = new ProjectController(fileService, notificationService);
 
     /**
      * @swagger
@@ -280,6 +284,176 @@ export default function projectRoutes(fileService) {
 
     /**
      * @swagger
+     * /api/projects/{id}/request:
+     *   post:
+     *     summary: Solicitar unirse a un proyecto público
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/projectId'
+     *     requestBody:
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               message:
+     *                 type: string
+     *                 maxLength: 500
+     *                 description: Mensaje opcional para los admins del proyecto
+     *     responses:
+     *       201:
+     *         description: Solicitud creada exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/ProjectRequest'
+     */
+    router.post(
+        '/:id/request',
+        authenticate,
+        validateParams(projectIdSchema),
+        validate(requestSchema),
+        projectController.requestToJoin
+    );
+
+    /**
+     * @swagger
+     * /api/projects/{id}/request:
+     *   delete:
+     *     summary: Cancelar una solicitud de unión pendiente
+     *     description: Permite a un usuario cancelar su propia solicitud pendiente para unirse a un proyecto
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/projectId'
+     *     responses:
+     *       200:
+     *         description: Solicitud cancelada exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     cancelledRequestId:
+     *                       type: string
+     *                       format: mongo-id
+     *       404:
+     *         description: No se encontró una solicitud pendiente para cancelar
+     *       403:
+     *         description: No autorizado para cancelar esta solicitud
+     */
+    router.delete(
+        '/:id/request',
+        authenticate,
+        validateParams(projectIdSchema),
+        projectController.cancelRequest
+    );
+
+    /**
+     * @swagger
+     * /api/projects/requests/{requestId}:
+     *   patch:
+     *     summary: Responder a una solicitud de unión (admin)
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: requestId
+     *         required: true
+     *         schema:
+     *           type: string
+     *           format: mongo-id
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - status
+     *             properties:
+     *               status:
+     *                 type: string
+     *                 enum: [approved, rejected]
+     *               message:
+     *                 type: string
+     *                 maxLength: 500
+     *     responses:
+     *       200:
+     *         description: Respuesta a solicitud exitosa
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/ProjectRequest'
+     */
+    router.patch(
+        '/requests/:requestId',
+        authenticate,
+        validateParams(requestIdSchema),
+        validate(respondRequestSchema),
+        projectController.respondToRequest
+    );
+
+    /**
+     * @swagger
+     * /api/projects/{id}/requests:
+     *   get:
+     *     summary: Obtener solicitudes de un proyecto (admin)
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/projectId'
+     *       - in: query
+     *         name: status
+     *         schema:
+     *           type: string
+     *           enum: [pending, approved, rejected]
+     *     responses:
+     *       200:
+     *         description: Lista de solicitudes
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     $ref: '#/components/schemas/ProjectRequest'
+     */
+    router.get(
+        '/:id/requests',
+        authenticate,
+        validateParams(projectIdSchema),
+        projectController.getProjectRequests
+    );
+
+    /**
+     * @swagger
      * /api/projects/{id}/collaborators:
      *   post:
      *     summary: Añadir colaborador a un proyecto
@@ -357,35 +531,6 @@ export default function projectRoutes(fileService) {
 
     /**
      * @swagger
-     * /api/projects/{id}/join:
-     *   post:
-     *     summary: Unirse a un proyecto público
-     *     tags: [Proyectos]
-     *     security:
-     *       - bearerAuth: []
-     *     parameters:
-     *       - $ref: '#/components/parameters/projectId'
-     *     responses:
-     *       200:
-     *         description: Unión exitosa al proyecto
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/SuccessResponse'
-     *       400:
-     *         $ref: '#/components/responses/ValidationError'
-     *       404:
-     *         $ref: '#/components/responses/ProjectNotFound'
-     */
-    router.post(
-        '/:id/join',
-        authenticate,
-        validateParams(projectIdSchema),
-        projectController.joinProject
-    );
-
-    /**
-     * @swagger
      * /api/projects/{id}/leave:
      *   post:
      *     summary: Abandonar un proyecto
@@ -411,6 +556,65 @@ export default function projectRoutes(fileService) {
         authenticate,
         validateParams(projectIdSchema),
         projectController.leaveProject
+    );
+
+    /**
+     * @swagger
+     * /api/projects/{id}/collaborators/role:
+     *   patch:
+     *     summary: Cambiar el rol de un colaborador
+     *     description: |
+     *       Permite a los admins o al owner cambiar el rol de un colaborador.
+     *       Roles disponibles: 'admin' o 'member'
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/projectId'
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - username
+     *               - newRole
+     *             properties:
+     *               username:
+     *                 type: string
+     *                 description: Nombre de usuario del colaborador
+     *               newRole:
+     *                 type: string
+     *                 enum: [admin, member]
+     *                 description: Nuevo rol a asignar
+     *     responses:
+     *       200:
+     *         description: Rol actualizado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/Collaborator'
+     *       400:
+     *         $ref: '#/components/responses/ValidationError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     *       404:
+     *         oneOf:
+     *           - $ref: '#/components/responses/ProjectNotFound'
+     *           - $ref: '#/components/responses/UserNotFound'
+     */
+    router.patch(
+        '/:id/collaborators/role',
+        authenticate,
+        validateParams(projectIdSchema),
+        validate(updateRoleSchema),
+        projectController.updateCollaboratorRole
     );
 
     /**
