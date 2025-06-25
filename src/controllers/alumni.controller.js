@@ -191,6 +191,7 @@ export default class AlumniController {
             const response = {
                 ...alumniData,
                 user: {
+                    id: userData.id,
                     username: userData.username,
                     profilePicture: userData.profilePicture,
                     lastLogin: userData.lastLogin

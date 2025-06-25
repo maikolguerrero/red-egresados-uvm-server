@@ -55,6 +55,7 @@ export default class ProjectController {
         try {
             const { page = 1, limit = 10, status, search, tags, tagMatch = 'any', userId = null, username } = req.query;
             const skip = (page - 1) * limit;
+            const { id: currentUserId } = req.user; // Id del usuario autenticado que realiza la petición
 
             let tagsArray = tags;
             if (tags && typeof tags === 'string') {
@@ -120,6 +121,40 @@ export default class ProjectController {
                 Project.countDocuments(filter)
             ]);
 
+            // --- Lógica para verificar colaboración y solicitudes pendientes ---
+            const projectsWithStatus = await Promise.all(
+                projects.map(async (project) => {
+                    const isCollaborator = project.collaborators.some(
+                        (collab) => collab.user && collab.user._id.toString() === currentUserId
+                    );
+
+                    req.logger.debug('Proyecto encontrado', {
+                        action: 'project_found',
+                        userId: currentUserId,
+                        projectId: project.id
+                    });
+
+                    const hasPendingRequest = await ProjectRequest.exists({
+                        project: project.id,
+                        user: currentUserId,
+                        status: 'pending'
+                    });
+
+                    req.logger.debug('Solicitud pendiente', {
+                        action: 'project_request_pending',
+                        hasPendingRequest: hasPendingRequest,
+                        userId: currentUserId,
+                        projectId: project.id
+                    });
+
+                    return {
+                        ...project.toJSON(), // Convierte el documento Mongoose a un objeto JS plano
+                        isCollaborator: isCollaborator,
+                        hasPendingRequest: !!hasPendingRequest // Convierte el resultado de exists a booleano
+                    };
+                })
+            );
+
             res.json({
                 success: true,
                 pagination: {
@@ -128,7 +163,7 @@ export default class ProjectController {
                     pages: Math.ceil(total / limit),
                     limit: parseInt(limit)
                 },
-                data: projects
+                data: projectsWithStatus
             });
         } catch (error) {
             next(error);
@@ -142,6 +177,7 @@ export default class ProjectController {
     getProjectById = async (req, res, next) => {
         try {
             const { id } = req.params;
+            const { id: currentUserId } = req.user; // Id del usuario autenticado que realiza la petición
 
             const project = await Project.findById(id)
                 .populate('owner', 'username profilePicture firstName lastName')
@@ -155,9 +191,27 @@ export default class ProjectController {
             // Incrementar contador de vistas
             await Project.findByIdAndUpdate(id, { $inc: { viewCount: 1 } });
 
+            // --- Lógica para verificar colaboración y solicitudes pendientes ---
+            const isCollaborator = project.collaborators.some(
+                (collab) => collab.user && collab.user._id.toString() === currentUserId
+            );
+
+            const hasPendingRequest = await ProjectRequest.exists({
+                project: project._id,
+                user: currentUserId,
+                status: 'pending'
+            });
+
+            // Agrega las nuevas propiedades al objeto del proyecto
+            const projectWithStatus = {
+                ...project.toJSON(),
+                isCollaborator: isCollaborator,
+                hasPendingRequest: !!hasPendingRequest
+            };
+
             res.json({
                 success: true,
-                data: project
+                data: projectWithStatus
             });
         } catch (error) {
             next(error);
@@ -371,8 +425,15 @@ export default class ProjectController {
 
             // Obtener la solicitud con datos del proyecto y usuario
             const request = await ProjectRequest.findById(requestId)
-                .populate('project', 'title collaborators')
-                .populate('user', 'username');
+                .populate({
+                    path: 'project',
+                    select: 'title collaborators',
+                    populate: {
+                        path: 'collaborators.user collaborators.role',
+                        select: 'username profilePicture'
+                    }
+                })
+                .populate('user', 'username profilePicture')
 
             if (!request) {
                 throw new AppError('Solicitud no encontrada', 404, 'REQUEST_NOT_FOUND');
@@ -380,7 +441,7 @@ export default class ProjectController {
 
             // Verificar que el usuario que responde es admin del proyecto
             const isAdmin = request.project.collaborators.some(
-                collab => collab.user.toString() === userId && ['admin', 'creator'].includes(collab.role)
+                collab => collab.user.id.toString() === userId && ['admin', 'creator'].includes(collab.role)
             );
             if (!isAdmin) {
                 throw new AppError('No autorizado para responder a esta solicitud', 403, 'FORBIDDEN');
@@ -398,10 +459,11 @@ export default class ProjectController {
             request.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días en milisegundos para eliminar
             await request.save();
 
+
             // Si fue aprobada, añadir como colaborador
             if (status === 'approved') {
                 request.project.collaborators.push({
-                    user: request.user._id,
+                    user: request.user,
                     role: 'member',
                     joinedAt: new Date()
                 });

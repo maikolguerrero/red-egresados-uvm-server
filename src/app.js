@@ -13,6 +13,7 @@
  * @requires ./services/email.service
  * @requires ./services/file.service
  * @requires ./services/notification.service
+ * @requires ./services/chat.service
  * @requires ./middlewares/errorHandler
  * @requires ./middlewares/requestId
  * @requires ./routes/auth.routes
@@ -22,6 +23,7 @@
  * @requires ./routes/notification.routes
  * @requires ./routes/project.routes
  * @requires ./routes/notification.routes
+ * @requires ./routes/chat.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -57,6 +59,7 @@ import nodemailer from 'nodemailer';
 import EmailService from './services/email.service.js';
 import FileService from './services/file.service.js';
 import NotificationService from './services/notification.service.js';
+import ChatService from './services/chat.service.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import authRoutes from './routes/auth.routes.js';
@@ -65,6 +68,7 @@ import eventRoutes from './routes/event.routes.js';
 import forumRoutes from './routes/forum.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -93,7 +97,8 @@ const httpServer = createServer(app);
  */
 const io = new Server(httpServer, {
     cors: {
-        origin: isProduction ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000'],
+        origin: isProduction ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.105:5173'],
+        // origin: isProduction ? [process.env.FRONTEND_URL] : 'http://localhost:5173',/192.168.0.105:5173/
         methods: ['GET', 'POST'],
         credentials: true
     }
@@ -115,7 +120,7 @@ app.use(compression());
  */
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 100,
+    limit: 1000,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: 'Demasiadas peticiones a la API'
@@ -130,7 +135,7 @@ const apiLimiter = rateLimit({
  */
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 20,
+    limit: 500,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: 'Demasiados intentos de acceso.'
@@ -206,7 +211,8 @@ const corsOptions = {
         // otras URLs de producción
     ] : [
         'http://localhost:5173',
-        'http://localhost:3000'
+        'http://localhost:3000',
+        'http://192.168.0.105:5173'
     ],
     credentials: true, // Permite cookies en cross-origin
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -246,6 +252,12 @@ const fileService = new FileService(logger);
  * @description Instancia del servicio de notificaciones con logger configurado
  */
 const notificationService = new NotificationService(io, logger);
+
+/**
+ * @constant {ChatService} chatService
+ * @description Instancia del servicio de chat con logger configurado
+ */
+const chatService = new ChatService(io, logger, notificationService);
 
 // Middlewares principales
 app.use(requestIdMiddleware); // Generar ID único para cada solicitud
@@ -304,10 +316,36 @@ app.use('/api/projects', apiLimiter, projectRoutes(fileService, notificationServ
  * @description Rutas de notificaciones con limitador de tasa específico
  * @see {@link ./routes/notification.routes.js}
  */
-app.use('/api/notifications', apiLimiter, notificationRoutes());
+app.use('/api/notifications', apiLimiter, notificationRoutes(notificationService));
+
+/**
+ * @route /api/chat
+ * @description Rutas de chat con limitador de tasa específico
+ * @see {@link ./routes/chat.routes.js}
+ */
+app.use('/api/chat', apiLimiter, chatRoutes(chatService));
+
+
+// Ruta para recibir desconexiones via sendBeacon
+app.post('/api/socket/disconnect', (req, res) => {
+    try {
+        const data = req.body;
+        logger.info('Desconexión por cierre de pestaña', {
+            userId: data.userId,
+            type: data.type,
+            timestamp: new Date().toISOString()
+        });
+        res.status(200).json({ success: true });
+    } catch (error) {
+        logger.error('Error en endpoint de desconexión', {
+            error: error.message
+        });
+        res.status(500).json({ success: false });
+    }
+});
 
 app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores
 
 // Exportar los componentes principales
-export { app, io, httpServer };
+export { app, io, httpServer, notificationService, chatService };

@@ -28,6 +28,14 @@ export default class NotificationService {
             // Emitir la notificación al usuario específico
             this.io.to(`user_${userId}`).emit('new_notification', notification);
 
+            // Emitir conteo actualizado
+            const unreadCount = await Notification.countDocuments({
+                user: userId,
+                read: false
+            });
+
+            this.io.to(`user_${userId}`).emit('notification_count', unreadCount);
+
             return notification;
         } catch (error) {
             this.logger.error('Error creating notification:', {
@@ -356,7 +364,7 @@ export default class NotificationService {
      * @description Notifica al solicitante sobre el estado de su solicitud
      */
     async sendProjectRequestUpdate({ requesterId, project, status, reviewerId, reviewMessage }) {
-        
+
         try {
             const statusMessage = {
                 approved: `Tu solicitud para unirte a "${project.title}" ha sido aprobada`,
@@ -382,5 +390,44 @@ export default class NotificationService {
             });
             throw error;
         }
+    }
+
+
+    // En tu controlador de notificaciones (backend)
+    async markAsRead(notificationId, userId) {
+        const notification = await Notification.findOneAndUpdate(
+            { _id: notificationId, user: userId, read: false },
+            { read: true },
+            { new: true }
+        );
+
+        if (notification) {
+            const unreadCount = await Notification.countDocuments({
+                user: userId,
+                read: false
+            });
+            this.io.to(`user_${userId}`).emit('notification_count', unreadCount);
+        }
+        return notification;
+    }
+
+    async deleteNotification(notificationId, userId) {
+        const notification = await Notification.findOneAndDelete({
+            _id: notificationId,
+            user: userId
+        });
+
+        if (!notification) {
+            return null;
+        }
+
+        if (!notification.read) {
+            const unreadCount = await Notification.countDocuments({
+                user: userId,
+                read: false
+            });
+            this.io.to(`user_${userId}`).emit('notification_count', unreadCount);
+        }
+        return notification;
     }
 }

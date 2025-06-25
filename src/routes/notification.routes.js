@@ -4,9 +4,9 @@ import { authenticate } from '../middlewares/auth.middleware.js';
 import { validateQuery, validateParams } from '../middlewares/validate.middleware.js';
 import { notificationQuerySchema, notificationIdSchema } from '../schemas/notification.schemas.js';
 
-export default function notificationRoutes() {
+export default function notificationRoutes(notificationService) {
     const router = express.Router();
-    const controller = new NotificationController();
+    const controller = new NotificationController(notificationService);
 
     /**
      * @swagger
@@ -137,6 +137,8 @@ export default function notificationRoutes() {
         validateParams(notificationIdSchema),
         controller.deleteNotification
     );
+
+    router.get('/unread-count', authenticate, controller.getUnreadCount);
 
     return router;
 }

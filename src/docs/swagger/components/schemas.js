@@ -1939,3 +1939,73 @@
  *           type: string
  *           example: "Notificación eliminada"
  */
+
+// =============================================
+// Sección 13: Esquemas de Mensajes Privados
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     PrivateMessage:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         sender:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         receiver:
+ *           $ref: '#/components/schemas/UserBasic'
+ *         content:
+ *           type: string
+ *         read:
+ *           type: boolean
+ *         attachments:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [image, video, document]
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ */
+
+// =============================================
+// Sección 14: Esquemas de Mensajes de Socket
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SocketMessage:
+ *       type: object
+ *       required:
+ *         - sender
+ *         - receiver
+ *         - content
+ *       properties:
+ *         sender:
+ *           type: string
+ *           format: mongo-id
+ *         receiver:
+ *           type: string
+ *           format: mongo-id
+ *         content:
+ *           type: string
+ *         attachments:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [image, video, document]
+ */

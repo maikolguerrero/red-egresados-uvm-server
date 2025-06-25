@@ -7,6 +7,7 @@
  * @requires ./src/config/logger
  * @requires ./src/services/notification.service
  * @requires ./src/services/eventScheduler.service
+ * @requires ./src/middlewares/socketAuth
  * 
  * @description
  * Este archivo maneja:
@@ -17,10 +18,12 @@
  */
 
 import dotenv from 'dotenv';
-import { httpServer, io } from './src/app.js'; // Importa la app configurada
+import { httpServer, io, notificationService, chatService } from './src/app.js'; // Importa la app configurada
 import connectDB from './src/config/db.js';
 import logger from './src/config/logger.js';
 import EventScheduler from './src/services/eventScheduler.service.js';
+import { socketAuthenticate, socketAuthorize } from './src/middlewares/socketAuth.js';
+import PrivateMessage from './src/models/PrivateMessage.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -60,33 +63,17 @@ let serverRetryCount = 0;
  * @description Configura los eventos y manejadores de Socket.io
  */
 function configureSocketIO() {
-    // Manejar la conexión del socket
-    io.on('connection', (socket) => {
-        logger.info('Nuevo cliente conectado:', { socketId: socket.id });
+    // Aplicar middleware de autenticación
+    io.use(socketAuthenticate);
 
-        // Autenticación del socket
-        socket.on('authenticate', (userId) => {
-            if (userId) {
-                socket.join(`user_${userId}`);
-                logger.info(`Usuario ${userId} suscrito a notificaciones`, {
-                    socketId: socket.id,
-                    userId
-                });
-            }
-        });
+    // Configurar eventos de socket
+    chatService.setupSocketEvents();
 
-        // Manejar la desconexión del socket
-        socket.on('disconnect', () => {
-            logger.info('Cliente desconectado:', { socketId: socket.id });
-        });
-
-        // Manejar errores del socket
-        socket.on('error', (error) => {
-            logger.error('Error en Socket.io:', {
-                socketId: socket.id,
-                error: error.message,
-                stack: !isProduction ? error.stack : undefined
-            });
+    // Manejar errores globales de Socket.io
+    io.on('connection_error', (error) => {
+        logger.error('Error de conexión global con Socket.io:', {
+            error: error.message,
+            stack: !isProduction ? error.stack : undefined
         });
     });
 
@@ -131,10 +118,17 @@ async function startServer() {
         configureServices();
 
         // Iniciar el servidor
-        httpServer.listen(PORT, () => {
+        // httpServer.listen(PORT, () => {
+        //     logger.info(`Servidor escuchando en puerto ${PORT}`);
+        //     serverRetryCount = 0; // Resetear contador al éxito
+        // });
+
+        // Iniciar el servidor en todas las interfaces de red
+        httpServer.listen(PORT, '0.0.0.0', () => {
             logger.info(`Servidor escuchando en puerto ${PORT}`);
             serverRetryCount = 0; // Resetear contador al éxito
         });
+
 
         // Manejar errores del servidor
         httpServer.on('error', (err) => {

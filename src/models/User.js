@@ -200,6 +200,22 @@ const UserSchema = new mongoose.Schema({
     lastResetPasswordAttempt: {
         type: Date,
         select: false
+    },
+
+    /**
+     * Gestión de presencia
+     */
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: {
+        type: Date,
+        default: null
+    },
+    socketId: {
+        type: String,
+        default: null
     }
 }, {
     timestamps: true,
@@ -242,5 +258,12 @@ const UserSchema = new mongoose.Schema({
         }
     }
 });
+
+// Middleware para actualizar lastSeen al desconectarse
+UserSchema.methods.updateLastSeen = async function () {
+    this.isOnline = false;
+    this.lastSeen = new Date();
+    await this.save();
+};
 
 export default mongoose.model('User', UserSchema);

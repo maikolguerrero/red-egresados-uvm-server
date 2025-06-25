@@ -2,6 +2,10 @@ import Notification from '../models/Notification.js';
 import AppError from '../middlewares/AppError.js';
 
 export default class NotificationController {
+  constructor(notificationService) {
+    this.notificationService = notificationService;
+  }
+
   /**
    * @method getNotifications
    * @description Obtiene las notificaciones del usuario
@@ -47,11 +51,7 @@ export default class NotificationController {
       const { id } = req.params;
       const { id: userId } = req.user;
 
-      const notification = await Notification.findOneAndUpdate(
-        { _id: id, user: userId },
-        { read: true },
-        { new: true }
-      ).populate('fromUser', 'username profilePicture');
+      const notification = await this.notificationService.markAsRead(id, userId);
 
       if (!notification) {
         throw new AppError('Notificación no encontrada', 404);
@@ -75,10 +75,7 @@ export default class NotificationController {
       const { id } = req.params;
       const { id: userId } = req.user;
 
-      const notification = await Notification.findOneAndDelete({
-        _id: id,
-        user: userId
-      });
+      const notification = await this.notificationService.deleteNotification(id, userId);
 
       if (!notification) {
         throw new AppError('Notificación no encontrada', 404);
@@ -87,6 +84,22 @@ export default class NotificationController {
       res.json({
         success: true,
         message: 'Notificación eliminada'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  getUnreadCount = async (req, res, next) => {
+    try {
+      const count = await Notification.countDocuments({
+        user: req.user.id,
+        read: false
+      });
+
+      res.json({
+        success: true,
+        count
       });
     } catch (error) {
       next(error);
