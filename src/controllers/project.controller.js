@@ -323,10 +323,10 @@ export default class ProjectController {
             const { id: userId, username } = req.user;
             const { message } = req.body;
 
-            // Verificar que el proyecto existe y es público
+            // Verificar que el proyecto existe y es privado
             const project = await Project.findById(projectId);
             if (!project || !project.isPublic) {
-                throw new AppError('Proyecto no encontrado o no es público', 404, 'PROJECT_NOT_PUBLIC');
+                throw new AppError('Proyecto no encontrado o no es privado', 404, 'PROJECT_NOT_PRIVATE');
             }
 
             // Verificar que el usuario no es el owner (dueño)
@@ -746,6 +746,57 @@ export default class ProjectController {
         );
 
         return collaborator ? collaborator.role : null;
+    };
+
+    /**
+     * @method joinProject
+     * @description Permite a un usuario unirse a un proyecto público
+     */
+    joinProject = async (req, res, next) => {
+        try {
+            const { id: projectId } = req.params;
+            const { id: userId } = req.user;
+
+            // Verificar que el proyecto existe y es público
+            const project = await Project.findOne({
+                _id: projectId,
+                isPublic: true
+            });
+
+            if (!project) {
+                throw new AppError('Proyecto no encontrado o no es público', 404, 'PROJECT_NOT_PUBLIC');
+            }
+
+            // Verificar que el usuario no es el owner
+            if (project.owner.toString() === userId) {
+                throw new AppError('Eres el owner de este proyecto', 400, 'USER_IS_OWNER');
+            }
+
+            // Verificar que el usuario no es ya colaborador
+            const isAlreadyCollaborator = project.collaborators.some(
+                collab => collab.user.toString() === userId
+            );
+
+            if (isAlreadyCollaborator) {
+                throw new AppError('Ya eres colaborador de este proyecto', 400, 'ALREADY_COLLABORATOR');
+            }
+
+            // Añadir como colaborador con rol member
+            project.collaborators.push({
+                user: userId,
+                role: 'member',
+                joinedAt: new Date()
+            });
+
+            await project.save();
+
+            res.json({
+                success: true,
+                message: 'Te has unido al proyecto exitosamente'
+            });
+        } catch (error) {
+            next(error);
+        }
     };
 
     /**

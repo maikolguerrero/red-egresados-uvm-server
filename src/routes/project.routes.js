@@ -286,7 +286,7 @@ export default function projectRoutes(fileService, notificationService) {
      * @swagger
      * /api/projects/{id}/request:
      *   post:
-     *     summary: Solicitar unirse a un proyecto público
+     *     summary: Solicitar unirse a un proyecto privado
      *     tags: [Proyectos]
      *     security:
      *       - bearerAuth: []
@@ -527,6 +527,35 @@ export default function projectRoutes(fileService, notificationService) {
         authenticate,
         validateParams(projectIdSchema),
         projectController.removeCollaborator
+    );
+
+    /**
+     * @swagger
+     * /api/projects/{id}/join:
+     *   post:
+     *     summary: Unirse a un proyecto público
+     *     tags: [Proyectos]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/projectId'
+     *     responses:
+     *       200:
+     *         description: Unión exitosa al proyecto
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SuccessResponse'
+     *       400:
+     *         $ref: '#/components/responses/ValidationError'
+     *       404:
+     *         $ref: '#/components/responses/ProjectNotFound'
+     */
+    router.post(
+        '/:id/join',
+        authenticate,
+        validateParams(projectIdSchema),
+        projectController.joinProject
     );
 
     /**

@@ -54,11 +54,11 @@ export const projectUpdateSchema = yup.object().shape({
         .transform((value, originalValue) => {
             return originalValue === '' ? null : value;
         })
-        .when('startDate', (startDate, schema) => {
-            return startDate
-                ? schema.min(startDate, 'La fecha de fin debe ser posterior a la de inicio')
-                : schema;
-        })
+        // .when('startDate', (startDate, schema) => {
+        //     return startDate
+        //         ? schema.min(startDate, 'La fecha de fin debe ser posterior a la de inicio')
+        //         : schema;
+        // })
         .optional(),
     isPublic: yup.boolean()
         .optional()
