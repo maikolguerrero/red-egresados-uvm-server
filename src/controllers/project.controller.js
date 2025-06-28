@@ -819,11 +819,19 @@ export default class ProjectController {
                 joinedAt: new Date()
             });
 
+            // Guardar proyecto
             await project.save();
+
+            // Poblar datos
+            await project.populate('collaborators.user', 'username profilePicture firstName lastName');
+
+            // Convertir a objeto plano
+            const projectObject = project.toObject();
 
             res.json({
                 success: true,
-                message: 'Te has unido al proyecto exitosamente'
+                message: 'Te has unido al proyecto exitosamente',
+                data: projectObject.collaborators.find(c => c.user.id.toString() === userId)
             });
         } catch (error) {
             next(error);
