@@ -53,7 +53,18 @@ export default class ProjectController {
      */
     getProjects = async (req, res, next) => {
         try {
-            const { page = 1, limit = 10, status, search, tags, tagMatch = 'any', userId = null, username } = req.query;
+            const {
+                page = 1,
+                limit = 10,
+                status,
+                search,
+                tags,
+                tagMatch = 'any',
+                userId = null,
+                username,
+                sort,
+                sortDirection = 'desc'
+            } = req.query;
             const skip = (page - 1) * limit;
             const { id: currentUserId } = req.user; // Id del usuario autenticado que realiza la petición
 
@@ -111,21 +122,41 @@ export default class ProjectController {
                 ];
             }
 
+            // Configurar el ordenamiento
+            let sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 }; // Orden por defecto
+            if (sort === 'collaborators') {
+                sortOption = { 'collaboratorsCount': sortDirection === 'desc' ? -1 : 1 }; // Ordenar por cantidad de colaboradores (descendente)
+            }
+
             const [projects, total] = await Promise.all([
                 Project.find(filter)
                     .skip(skip)
                     .limit(parseInt(limit))
-                    .sort({ createdAt: -1 })
+                    .sort(sortOption)
                     .populate('owner', 'username profilePicture firstName lastName')
                     .populate('collaborators.user', 'username profilePicture firstName lastName'),
                 Project.countDocuments(filter)
             ]);
 
+            // Agregar campo collaboratorsCount a cada proyecto
+            const projectsWithCount = projects.map(project => {
+                const collaboratorsCount = project.collaborators.length;
+                return {
+                    ...project.toObject(),
+                    collaboratorsCount
+                };
+            });
+
+            // Si se ordenó por colaboradores, ordenar nuevamente los resultados ya poblados
+            if (sort === 'collaborators') {
+                projectsWithCount.sort((a, b) => b.collaboratorsCount - a.collaboratorsCount);
+            }
+
             // --- Lógica para verificar colaboración y solicitudes pendientes ---
             const projectsWithStatus = await Promise.all(
-                projects.map(async (project) => {
+                projectsWithCount.map(async (project) => {
                     const isCollaborator = project.collaborators.some(
-                        (collab) => collab.user && collab.user._id.toString() === currentUserId
+                        (collab) => collab.user && collab.user.id.toString() === currentUserId
                     );
 
                     req.logger.debug('Proyecto encontrado', {
@@ -148,8 +179,8 @@ export default class ProjectController {
                     });
 
                     return {
-                        ...project.toJSON(), // Convierte el documento Mongoose a un objeto JS plano
-                        isCollaborator: isCollaborator,
+                        ...project, // Convierte el documento Mongoose a un objeto JS plano
+                        isCollaborator,
                         hasPendingRequest: !!hasPendingRequest // Convierte el resultado de exists a booleano
                     };
                 })

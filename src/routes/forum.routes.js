@@ -272,7 +272,14 @@ export default function forumRoutes(fileService, notificationService) {
      *         name: sort
      *         schema:
      *           type: string
-     *           enum: [newest, oldest, top]
+     *           enum: [newest, oldest, likes]
+     *           default: newest
+     *       - in: query
+     *         name: sortDirection
+     *         schema:
+     *           type: string
+     *           enum: [asc, desc]
+     *           default: desc
      *     responses:
      *       200:
      *         description: Lista paginada de hilos

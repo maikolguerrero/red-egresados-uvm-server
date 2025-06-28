@@ -79,19 +79,29 @@ export default class EventController {
     };
 
     /**
-    * @method getEvents
-    * @async
-    * @description Obtiene eventos con filtros y paginación
-    * @param {Object} req - Objeto de petición Express
-    * @param {Object} res - Objeto de respuesta Express
-    * @param {Function} next - Función para pasar al siguiente middleware
-    * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados
-    */
+     * @method getEvents
+     * @async
+     * @description Obtiene eventos con filtros y paginación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados
+     */
     getEvents = async (req, res, next) => {
         try {
-            const { page = 1, limit = 10, type, tags, tagMatch = 'any', search, upcoming } = req.query;
+            const {
+                page = 1,
+                limit = 10,
+                type,
+                tags,
+                tagMatch = 'any',
+                search,
+                sort = 'createdAt'
+            } = req.query;
+
             const skip = (page - 1) * limit;
             let tagsArray = tags;
+
             // Convertir tags a array si viene como string
             if (tags && typeof tags === 'string') {
                 tagsArray = tags.split(',').map(tag => tag.trim().toLowerCase());
@@ -105,7 +115,16 @@ export default class EventController {
             });
 
             const filter = {};
+
+            // Filtro por tipo de evento
             if (type) filter.eventType = type;
+
+            // Filtrar por eventos futuros si se especifica
+            if (sort === 'startDate') {
+                filter.startDate = { $gte: new Date() };
+            }
+
+            // Filtro por tags
             if (tagsArray.length > 0) {
                 if (tagMatch === 'all') {
                     // Para coincidencia con TODOS los tags
@@ -116,17 +135,42 @@ export default class EventController {
                 }
             }
 
+            // Filtro por búsqueda
             if (search) filter.$text = { $search: search };
-            if (upcoming === 'true') filter.startDate = { $gte: new Date() };
+
+            // if (upcoming === 'true') filter.startDate = { $gte: new Date() };
+
+            // Configurar el ordenamiento
+            let sortOption = {};
+            if (sort === 'startDate') {
+                // Ordenar por fecha de inicio ascendente (más cercanos primero)
+                sortOption = { startDate: 1 };
+            } else if (sort === 'createdAt') {
+                // Ordenar por fecha de creación (más nuevos primero)
+                sortOption = { createdAt: -1 };
+            }
 
             const [events, total] = await Promise.all([
                 Event.find(filter)
                     .skip(skip)
                     .limit(parseInt(limit))
-                    .sort({ startDate: 1 })
+                    .sort(sortOption)
                     .populate('createdBy', 'username email'),
                 Event.countDocuments(filter)
             ]);
+
+            // Calcular días restantes para cada evento
+            const now = new Date();
+            const eventsWithDaysLeft = events.map(event => {
+                const eventObj = event.toObject();
+                if (event.startDate) {
+                    const timeDiff = event.startDate - now;
+                    eventObj.daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                } else {
+                    eventObj.daysLeft = null;
+                }
+                return eventObj;
+            });
 
             req.logger.info('Eventos obtenidos exitosamente', {
                 action: 'event_get_success',
@@ -142,7 +186,7 @@ export default class EventController {
                     pages: Math.ceil(total / limit),
                     limit: parseInt(limit)
                 },
-                data: events
+                data: eventsWithDaysLeft
             });
         } catch (error) {
             next(error);

@@ -127,6 +127,20 @@ export default function projectRoutes(fileService, notificationService) {
      *         description: Filtrar por proyectos de un usuario específico (como owner o colaborador)
      *         schema:
      *           type: string
+     *       - in: query
+     *         name: sort
+     *         description: Campo por el que ordenar los resultados
+     *         schema:
+     *           type: string
+     *           enum: [createdAt, collaborators]
+     *           default: createdAt
+     *       - in: query
+     *         name: sortDirection
+     *         description: Dirección del ordenamiento (asc o desc)
+     *         schema:
+     *           type: string
+     *           enum: [asc, desc]
+     *           default: desc
      *     responses:
      *       200:
      *         description: Lista de proyectos

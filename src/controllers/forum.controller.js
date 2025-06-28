@@ -335,7 +335,16 @@ export default class ForumController {
      */
     getThreads = async (req, res, next) => {
         try {
-            const { page = 1, limit = 10, category, tags, tagMatch = 'any', sort = 'newest', search } = req.query;
+            const {
+                page = 1,
+                limit = 10,
+                category,
+                tags,
+                tagMatch = 'any',
+                sort = 'newest',
+                search,
+                sortDirection = 'desc'
+            } = req.query;
             const skip = (page - 1) * limit;
             const userId = req.user.id;
 
@@ -348,7 +357,15 @@ export default class ForumController {
             }
 
             const filter = {};
+            // Filtro por categoría
             if (category) filter.category = category;
+
+            // Filtro por likes si se especifica
+            if (sort === 'likes') {
+                filter.likes = { $exists: true, $not: { $size: 0 } };
+            }
+
+            // Filtro por tags
             if (tagsArray.length > 0) {
                 if (tagMatch === 'all') {
                     // Para coincidencia con TODOS los tags
@@ -363,10 +380,15 @@ export default class ForumController {
 
             let sortOption;
             switch (sort) {
-                case 'newest': sortOption = { createdAt: -1 }; break;
-                case 'oldest': sortOption = { createdAt: 1 }; break;
-                case 'top': sortOption = { likeCount: -1 }; break;
-                default: sortOption = { createdAt: -1 };
+                case 'newest': sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 }; break;
+                case 'oldest': sortOption = { createdAt: sortDirection === 'desc' ? 1 : -1 }; break;
+                case 'likes': sortOption = { likeCount: sortDirection === 'desc' ? -1 : 1 }; break;
+                default: sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 };
+            }
+
+            // Si se piden los más likes, sobreescribir el orden
+            if (sort === 'likes') {
+                sortOption = { likeCount: sortDirection === 'desc' ? -1 : 1 };
             }
 
             // Obtener los hilos
@@ -379,8 +401,8 @@ export default class ForumController {
                 ForumThread.countDocuments(filter)
             ]);
 
-            // Obtener el conteo de comentarios para cada hilo
-            const threadsWithCommentCount = await Promise.all(
+           // Obtener el conteo de comentarios y likes para cada hilo
+            const threadsWithStats = await Promise.all(
                 threads.map(async thread => {
                     const commentCount = await ForumComment.countDocuments({ thread: thread._id });
                     const threadObj = thread.toObject();
@@ -391,6 +413,11 @@ export default class ForumController {
                 })
             );
 
+            // Si se piden los más likes, ordenar nuevamente por likeCount
+            if (sort === 'likes') {
+                threadsWithStats.sort((a, b) => b.likeCount - a.likeCount);
+            }
+
             res.json({
                 success: true,
                 pagination: {
@@ -399,7 +426,7 @@ export default class ForumController {
                     pages: Math.ceil(total / limit),
                     limit: parseInt(limit)
                 },
-                data: threadsWithCommentCount
+                data: threadsWithStats
             });
         } catch (error) {
             next(error);

@@ -72,10 +72,12 @@ export default function eventRoutes(fileService) {
      *           type: string
      *         description: Búsqueda textual en título y descripción
      *       - in: query
-     *         name: upcoming
+     *         name: sort
      *         schema:
-     *           type: boolean
-     *         description: Si es true, solo devuelve eventos con fecha futura
+     *           type: string
+     *           enum: [startDate, createdAt]
+     *           default: createdAt
+     *         description: Campo por el que ordenar los eventos
      *     responses:
      *       200:
      *         $ref: '#/components/responses/EventListSuccess'
