@@ -325,7 +325,7 @@ export default class ProjectController {
 
             // Verificar que el proyecto existe y es privado
             const project = await Project.findById(projectId);
-            if (!project || !project.isPublic) {
+            if (!project || project.isPublic) {
                 throw new AppError('Proyecto no encontrado o no es privado', 404, 'PROJECT_NOT_PRIVATE');
             }
 

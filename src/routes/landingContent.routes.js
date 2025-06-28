@@ -3,33 +3,39 @@ import ContentController from '../controllers/content.controller.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { contentUpdateSchema } from '../schemas/content.schemas.js';
+import LandingPageContent from '../models/LandingPageContent.js';
 
-export default function contentRoutes(fileService) {
+export default function landingContentRoutes(fileService, logger) {
     const router = express.Router();
-    const contentController = new ContentController(fileService);
+    const contentController = new ContentController(LandingPageContent, fileService, logger);
 
     /**
      * @swagger
-     * /api/content:
+     * /api/content/landing:
      *   get:
      *     summary: Obtener todo el contenido del sitio
-     *     tags: [Content]
+     *     tags: [Contenido de la Landing Page]
      *     responses:
      *       200:
      *         description: Contenido obtenido exitosamente
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/Content'
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/LandingPageContent'
      */
     router.get('/', authenticate, contentController.getContent);
 
     /**
      * @swagger
-     * /api/content:
+     * /api/content/landing:
      *   patch:
      *     summary: Actualizar el contenido del sitio (solo admin)
-     *     tags: [Content]
+     *     tags: [Contenido de la Landing Page]
      *     security:
      *       - bearerAuth: []
      *     requestBody:
@@ -37,14 +43,21 @@ export default function contentRoutes(fileService) {
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/ContentUpdate'
+     *             $ref: '#/components/schemas/LandingPageContentUpdate'
      *     responses:
      *       200:
      *         description: Contenido actualizado exitosamente
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/Content'
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 data:
+     *                   $ref: '#/components/schemas/LandingPageContent'
      */
     router.patch('/',
         authenticate,
@@ -55,10 +68,10 @@ export default function contentRoutes(fileService) {
 
     /**
      * @swagger
-     * /api/content/carousel/media:
+     * /api/content/landing/carousel/media:
      *   post:
      *     summary: Subir medio para el carrusel (solo admin)
-     *     tags: [Content]
+     *     tags: [Contenido de la Landing Page]
      *     security:
      *       - bearerAuth: []
      *     requestBody:
@@ -77,7 +90,12 @@ export default function contentRoutes(fileService) {
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/CarouselMedia'
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/CarouselMedia'
      */
     router.post(
         '/carousel/media',
@@ -89,10 +107,10 @@ export default function contentRoutes(fileService) {
 
     /**
      * @swagger
-     * /api/content/subsections/image/{sectionIndex}/{subsectionIndex}:
+     * /api/content/landing/subsections/image/{sectionIndex}/{subsectionIndex}:
      *   post:
      *     summary: Subir imagen para subsección (solo admin)
-     *     tags: [Content]
+     *     tags: [Contenido de la Landing Page]
      *     security:
      *       - bearerAuth: []
      *     parameters:
@@ -124,7 +142,14 @@ export default function contentRoutes(fileService) {
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/SubsectionImage'
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 data:
+     *                   $ref: '#/components/schemas/SubsectionImage'
      */
     router.post(
         '/subsections/:sectionIndex/:subsectionIndex/image',
@@ -136,10 +161,10 @@ export default function contentRoutes(fileService) {
 
     /**
    * @swagger
-   * /api/content/carousel/{index}:
+   * /api/content/landing/carousel/{index}:
    *   delete:
    *     summary: Elimina un item del carrusel (solo admin)
-   *     tags: [Content]
+   *     tags: [Contenido de la Landing Page]
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -178,10 +203,10 @@ export default function contentRoutes(fileService) {
 
     /**
      * @swagger
-     * /api/content/subsections/{sectionIndex}/{subsectionIndex}/image:
+     * /api/content/landing/subsections/{sectionIndex}/{subsectionIndex}/image:
      *   delete:
      *     summary: Elimina imagen de una subsección (solo admin)
-     *     tags: [Content]
+     *     tags: [Contenido de la Landing Page]
      *     security:
      *       - bearerAuth: []
      *     parameters:

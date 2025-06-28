@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const ContentSchema = new mongoose.Schema({
+const HomePageContentSchema = new mongoose.Schema({
     // Sección de bienvenida
     welcomeSections: [{
         title: {
@@ -15,27 +15,6 @@ const ContentSchema = new mongoose.Schema({
         },
         order: Number
     }],
-
-    // Preguntas frecuentes
-    faqs: [{
-        question: {
-            type: String,
-            required: true,
-            maxlength: 200
-        },
-        answer: {
-            type: String,
-            required: true,
-            maxlength: 1000
-        },
-        order: Number
-    }],
-
-    // Texto del footer
-    footerText: {
-        type: String,
-        maxlength: 500
-    },
 
     // Carrusel de imágenes/videos
     carouselItems: [{
@@ -157,11 +136,7 @@ const ContentSchema = new mongoose.Schema({
             if (ret.welcomeSections) {
                 ret.welcomeSections = ret.welcomeSections.map(transformSubdocument);
             }
-
-            if (ret.faqs) {
-                ret.faqs = ret.faqs.map(transformSubdocument);
-            }
-
+            
             if (ret.carouselItems) {
                 ret.carouselItems = ret.carouselItems.map(transformSubdocument);
             }
@@ -196,10 +171,6 @@ const ContentSchema = new mongoose.Schema({
                 ret.welcomeSections = ret.welcomeSections.map(transformSubdocument);
             }
 
-            if (ret.faqs) {
-                ret.faqs = ret.faqs.map(transformSubdocument);
-            }
-
             if (ret.carouselItems) {
                 ret.carouselItems = ret.carouselItems.map(transformSubdocument);
             }
@@ -219,4 +190,4 @@ const ContentSchema = new mongoose.Schema({
     }
 });
 
-export default mongoose.model('Content', ContentSchema);
+export default mongoose.model('HomePageContent', HomePageContentSchema);

@@ -2,7 +2,7 @@
  * @swagger
  * components:
  *   schemas:
- *     Content:
+ *     LandingPageContent:
  *       type: object
  *       properties:
  *         id:
@@ -18,6 +18,29 @@
  *             $ref: '#/components/schemas/FAQ'
  *         footerText:
  *           type: string
+ *         carouselItems:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CarouselMedia'
+ *         featuredSections:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/FeaturedSection'
+ *         lastUpdatedBy:
+ *           type: string
+ *           format: mongo-id
+ *           nullable: true
+ * 
+ *     HomePageContent:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *         welcomeSections:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/WelcomeSection'
  *         carouselItems:
  *           type: array
  *           items:
@@ -90,6 +113,9 @@
  *     Subsection:
  *       type: object
  *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
  *         subtitle:
  *           type: string
  *         image:
@@ -115,7 +141,7 @@
  *             height:
  *               type: number
  * 
- *     ContentUpdate:
+ *     LandingPageContentUpdate:
  *       type: object
  *       properties:
  *         welcomeSections:
@@ -137,8 +163,24 @@
  *           items:
  *             $ref: '#/components/schemas/FeaturedSection'
  * 
+ *     HomePageContentUpdate:
+ *       type: object
+ *       properties:
+ *         welcomeSections:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/WelcomeSection'
+ *         carouselItems:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CarouselMedia'
+ *         featuredSections:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/FeaturedSection'
+ * 
  *   responses:
- *     ContentResponse:
+ *     LandingPageContentResponse:
  *       description: Respuesta de contenido
  *       content:
  *         application/json:
@@ -148,9 +190,21 @@
  *               success:
  *                 type: boolean
  *               data:
- *                 $ref: '#/components/schemas/Content'
+ *                 $ref: '#/components/schemas/LandingPageContent'
  * 
- *     ContentUpdated:
+ *     HomePageContentResponse:
+ *       description: Respuesta de contenido
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *               data:
+ *                 $ref: '#/components/schemas/HomePageContent'
+ * 
+ *     LandingPageContentUpdated:
  *       description: Contenido actualizado exitosamente
  *       content:
  *         application/json:
@@ -162,7 +216,21 @@
  *               message:
  *                 type: string
  *               data:
- *                 $ref: '#/components/schemas/Content'
+ *                 $ref: '#/components/schemas/LandingPageContent'
+ * 
+ *     HomePageContentUpdated:
+ *       description: Contenido actualizado exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *               message:
+ *                 type: string
+ *               data:
+ *                 $ref: '#/components/schemas/HomePageContent'
  * 
  *     CarouselMediaResponse:
  *       description: Respuesta de medio del carrusel
