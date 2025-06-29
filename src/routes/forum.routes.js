@@ -1,6 +1,6 @@
 import express from 'express';
 import ForumController from '../controllers/forum.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { validate, validateQuery, validateParams } from '../middlewares/validate.middleware.js';
 import {
     forumThreadSchema,
@@ -13,10 +13,16 @@ import {
     typesSchema,
     idSchema
 } from '../schemas/forum.schemas.js';
+import {
+    reportSchema,
+    resolveReportSchema,
+    reportIdSchema,
+    reportsQuerySchema
+} from '../schemas/report.schemas.js';
 
-export default function forumRoutes(fileService, notificationService) {
+export default function forumRoutes(fileService, notificationService, emailService) {
     const router = express.Router();
-    const forumController = new ForumController(fileService, notificationService);
+    const forumController = new ForumController(fileService, notificationService, emailService);
 
     /**
      * @swagger
@@ -599,6 +605,240 @@ export default function forumRoutes(fileService, notificationService) {
         authenticate,
         validateParams(commentIdSchema),
         forumController.deleteComment
+    );
+
+    /**
+     * @swagger
+     * /api/forum/report:
+     *   post:
+     *     summary: Reportar un hilo o comentario
+     *     description: Permite a los usuarios reportar contenido inapropiado
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ReportRequest'
+     *     responses:
+     *       201:
+     *         description: Reporte creado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ForumReport'
+     *       400:
+     *         description: Error de validación
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       404:
+     *         description: Contenido no encontrado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/report',
+        authenticate,
+        validate(reportSchema),
+        forumController.createReport
+    );
+
+    /**
+     * @swagger
+     * /api/forum/reports:
+     *   get:
+     *     summary: Obtener lista de reportes (Admin)
+     *     description: Retorna una lista paginada de reportes. Solo para administradores.
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/pageQuery'
+     *       - $ref: '#/components/parameters/limitQuery'
+     *       - $ref: '#/components/parameters/reportStatus'
+     *     responses:
+     *       200:
+     *         description: Lista de reportes
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ReportListResponse'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     */
+    router.get('/reports',
+        authenticate,
+        authorize('admin'),
+        validateQuery(reportsQuerySchema),
+        forumController.getReports
+    );
+
+    /**
+     * @swagger
+     * /api/forum/reports/{reportId}:
+     *   get:
+     *     summary: Obtener un reporte por ID (Admin)
+     *     description: Retorna los detalles de un reporte específico. Solo para administradores.
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/reportId'
+     *     responses:
+     *       200:
+     *         description: Detalles del reporte
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ForumReport'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     *       404:
+     *         $ref: '#/components/responses/ReportNotFound'
+     */
+    router.get('/reports/:reportId',
+        authenticate,
+        authorize('admin'),
+        validateParams(reportIdSchema),
+        forumController.getReportById
+    );
+
+    /**
+     * @swagger
+     * /api/forum/reports/{reportId}/resolve:
+     *   patch:
+     *     summary: Resolver un reporte (Admin)
+     *     description: Permite a los administradores marcar un reporte como resuelto y tomar acción.
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/reportId'
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ResolveReportRequest'
+     *     responses:
+     *       200:
+     *         description: Reporte resuelto exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ForumReport'
+     *       400:
+     *         description: Error de validación o reporte ya resuelto
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     *       404:
+     *         $ref: '#/components/responses/ReportNotFound'
+     */
+    router.patch('/reports/:reportId/resolve',
+        authenticate,
+        authorize('admin'),
+        validateParams(reportIdSchema),
+        validate(resolveReportSchema),
+        forumController.resolveReport
+    );
+
+    /**
+     * @swagger
+     * /api/forum/reports/{reportId}:
+     *   delete:
+     *     summary: Eliminar un reporte (Admin)
+     *     description: Elimina un reporte que no esté en estado 'pending'. Solo para administradores.
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - $ref: '#/components/parameters/reportId'
+     *     responses:
+     *       200:
+     *         description: Reporte eliminado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 data:
+     *                   $ref: '#/components/schemas/ForumReport'
+     *       400:
+     *         description: No se puede eliminar un reporte pendiente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     *       404:
+     *         $ref: '#/components/responses/ReportNotFound'
+     */
+    router.delete('/reports/:reportId',
+        authenticate,
+        authorize('admin'),
+        validateParams(reportIdSchema),
+        forumController.deleteReport
+    );
+
+    /**
+     * @swagger
+     * /api/forum/reports/cleanup:
+     *   delete:
+     *     summary: Eliminar reportes no pendientes (Admin)
+     *     description: Elimina todos los reportes que no estén en estado 'pending'. Solo para administradores.
+     *     tags: [Foro]
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: Reportes eliminados exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     deletedCount:
+     *                       type: integer
+     *                 message:
+     *                   type: string
+     *       401:
+     *         $ref: '#/components/responses/UnauthorizedError'
+     *       403:
+     *         $ref: '#/components/responses/ForbiddenError'
+     */
+    router.delete('/reports/cleanup',
+        authenticate,
+        authorize('admin'),
+        forumController.deleteNonPendingReports
     );
 
     return router;

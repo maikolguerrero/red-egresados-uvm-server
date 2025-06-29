@@ -19,6 +19,10 @@ const NotificationSchema = new mongoose.Schema({
             'event_reminder',
             'project_join_request',
             'project_request_update',
+            'report',
+            'new_report',
+            'report_resolved',
+            'user_warning',
             'system'
         ]
     },
@@ -44,6 +48,8 @@ const NotificationSchema = new mongoose.Schema({
             replyId: mongoose.Schema.Types.ObjectId,
             replyContent: String,
             replierUsername: String,
+            // Campos para reportes
+            reportId: mongoose.Schema.Types.ObjectId,
             // Campos para recordatorios de eventos
             eventTitle: String,
             eventDate: Date,
@@ -53,7 +59,9 @@ const NotificationSchema = new mongoose.Schema({
             projectId: mongoose.Schema.Types.ObjectId,
             requesterUsername: String,
             requestMessage: String,
-            reviewMessage: String
+            reviewMessage: String,
+            // Campos para advertencias
+            severity: String,
         },
         required: true
     },

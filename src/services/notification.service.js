@@ -1,5 +1,6 @@
 import Notification from '../models/Notification.js';
 import ForumComment from '../models/ForumComment.js';
+import User from '../models/User.js';
 import logger from '../config/logger.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -238,7 +239,7 @@ export default class NotificationService {
                 return null;
             }
 
-            const message = `${commenterUsername} te mencionó en un comentario: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"`;
+            const message = `@${commenterUsername} te mencionó en un comentario: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"`;
 
             return this.createNotification({
                 userId: mentionedUserId,
@@ -270,6 +271,106 @@ export default class NotificationService {
                 },
                 fromUser: commenterId
             });
+        }
+    }
+
+    /**
+     * @method notifyAdminsAboutReport
+     * @description Notifica a los admins sobre un nuevo reporte
+     */
+    async notifyAdminsAboutReport(report, reporterUsername, thread, comment) {
+        // Obtener todos los admins
+        const admins = await User.find({ role: 'admin' }).select('_id');
+
+        // Notificar a cada admin
+        await Promise.all(admins.map(async admin => {
+            const contentType = report.comment ? 'comentario' : 'hilo';
+            const message = `@${reporterUsername} reportó el ${contentType} "${report.comment ? comment.content : thread.title}" por: "${report.reason}"`;
+
+            await this.createNotification({
+                userId: admin._id,
+                type: 'new_report',
+                data: {
+                    reportId: report.id,
+                    threadId: report.thread,
+                    commentId: report.comment,
+                    message,
+                    reason: report.reason
+                },
+                fromUser: report.reporter
+            });
+        }));
+    }
+
+    /**
+     * @method notifyUserAboutReportResolution
+     * @description Notifica al usuario sobre la resolución de su reporte
+     */
+    async notifyUserAboutReportResolution(report, contentDeleted, adminMessage) {
+        const contentType = report.comment ? 'comentario' : 'hilo';
+        let message = `Tu reporte sobre el ${contentType} "${report.comment ? report.comment.content : report.thread.title}" ha sido procesado. `;
+
+        if (report.adminAction === 'deleted') {
+            message += 'El contenido fue eliminado.';
+        } else if (report.adminAction === 'warning') {
+            message += 'Se ha enviado una advertencia al usuario.';
+        } else if (report.adminAction === 'banned_user') {
+            message += 'El contenido fue eliminado y se ha prohibido el acceso al usuario.';
+        } else {
+            message += 'No se tomó ninguna acción.';
+        }
+
+        // if (adminMessage) {
+        //     message += `\nNota del administrador: ${adminMessage}`;
+        // }
+
+        await this.createNotification({
+            userId: report.reporter,
+            type: 'report_resolved',
+            data: {
+                // reportId: report._id,
+                reportId: report.id,
+                threadId: report.thread,
+                commentId: report.comment,
+                message,
+                action: report.adminAction,
+                contentDeleted
+            },
+            fromUser: report.resolvedBy
+        });
+    }
+
+    /**
+     * @method sendWarningNotification
+     * @description Envía una notificación de advertencia al usuario
+     */
+    async sendWarningNotification({
+        targetUserId,
+        senderId,
+        message,
+        context, // { threadId?, commentId?, reportId?, etc }
+        warningType, // 'content_warning', 'behavior_warning', etc
+        severity = 'medium' // 'low', 'medium', 'high'
+    }) {
+        try {
+            return this.createNotification({
+                userId: targetUserId,
+                type: 'user_warning',
+                data: {
+                    message: message,
+                    warningType,
+                    ...context,
+                    severity: severity // Puedes usar: 'low', 'medium', 'high'
+                },
+                fromUser: senderId
+            });
+        } catch (error) {
+            this.logger.error('Error sending warning notification:', {
+                error: error.message,
+                targetUserId,
+                warningType
+            });
+            throw error;
         }
     }
 

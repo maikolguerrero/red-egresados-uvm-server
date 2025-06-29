@@ -306,7 +306,7 @@ app.use('/api/events', apiLimiter, eventRoutes(fileService));
  * @description Rutas de foro con limitador de tasa específico
  * @see {@link ./routes/forum.routes.js}
  */
-app.use('/api/forum', apiLimiter, forumRoutes(fileService, notificationService));
+app.use('/api/forum', apiLimiter, forumRoutes(fileService, notificationService, emailService));
 
 /**
  * @route /api/projects

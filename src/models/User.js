@@ -181,6 +181,63 @@ const UserSchema = new mongoose.Schema({
     },
 
     /**
+     * Gestión de advertencias
+     */
+    warnings: [{
+        type: {
+            type: String,
+            enum: ['content', 'behavior', 'spam', 'other'],
+            required: true
+        },
+        reason: String,
+        content: String, // 'thread', 'comment', 'message', etc
+        contentId: mongoose.Schema.Types.ObjectId,
+        adminId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        message: String,
+        date: {
+            type: Date,
+            default: Date.now
+        },
+        resolved: {
+            type: Boolean,
+            default: false
+        }
+    }],
+
+    /**
+     * Gestión de suspensión
+     */
+    suspensions: [{
+        type: {
+            type: String,
+            enum: ['ban', 'suspension'],
+            required: true
+        },
+        reason: {
+            type: String,
+            required: true
+        },
+        contentId: mongoose.Schema.Types.ObjectId,
+        adminId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        message: String,
+        date: {
+            type: Date,
+            default: Date.now
+        },
+        until: Date, // Fecha de fin para suspensiones temporales
+        isActive: {
+            type: Boolean,
+            default: false
+        }
+    }],
+
+    /**
      * Restablecimiento de contraseña
      */
     resetPasswordToken: {
@@ -265,5 +322,73 @@ UserSchema.methods.updateLastSeen = async function () {
     this.lastSeen = new Date();
     await this.save();
 };
+
+
+/**
+ * @method checkSuspensionStatus
+ * @description Verifica el estado de suspensión del usuario
+ * @async
+ * @returns {Promise<{ wasSuspended: boolean, isNowActive: boolean }>} Resultado de la verificación
+ * @returns {boolean} wasSuspended - Indica si el usuario estaba suspendido
+ * @returns {boolean} isNowActive - Indica si el usuario ahora está activo
+ * 
+ * @example
+ * const result = await user.checkSuspensionStatus();
+ * if (result.wasSuspended) {
+ *   console.log('El usuario estaba suspendido');
+ * }
+ */
+UserSchema.methods.checkSuspensionStatus = async function () {
+    const now = new Date();
+    const activeSuspension = this.suspensions.find(s =>
+        !s.until || new Date(s.until) > now
+    );
+
+    // Si no hay suspensiones activas pero isActive está en false
+    if (!activeSuspension && !this.isActive) {
+        this.isActive = true;
+        await this.save();
+        return { wasSuspended: false, isNowActive: true };
+    }
+
+    // Si hay una suspensión activa pero isActive está en true
+    if (activeSuspension && this.isActive) {
+        this.isActive = false;
+        await this.save();
+        return { wasSuspended: true, isNowActive: false };
+    }
+
+    return { wasSuspended: !!activeSuspension, isNowActive: this.isActive };
+};
+
+/**
+ * @method preSave
+ * @description Pre-hook para actualizar el estado de activación del usuario
+ * @async
+ * @param {Function} next - Función para continuar con el siguiente middleware
+ * @returns {Promise<void>}
+ * 
+ * @example
+ * user.preSave();
+ */
+UserSchema.pre('save', async function (next) {
+    if (this.isModified('suspensions') || !this.isActive) {
+        const now = new Date();
+        const hasActiveSuspension = this.suspensions.some(s =>
+            !s.until || new Date(s.until) > now
+        );
+
+        // Si no hay suspensiones activas pero isActive está en false
+        if (!hasActiveSuspension && !this.isActive) {
+            this.isActive = true;
+        }
+
+        // Si hay suspensiones activas pero isActive está en true
+        if (hasActiveSuspension && this.isActive) {
+            this.isActive = false;
+        }
+    }
+    next();
+});
 
 export default mongoose.model('User', UserSchema);

@@ -1,5 +1,6 @@
 import ForumThread from '../models/ForumThread.js';
 import ForumComment from '../models/ForumComment.js';
+import ForumReport from '../models/ForumReport.js';
 import User from '../models/User.js';
 import AppError from '../middlewares/AppError.js';
 
@@ -11,9 +12,10 @@ export default class ForumController {
      * const fileService = new FileService();
      * const eventController = new EventController(fileService);
      */
-    constructor(fileService, notificationService) {
+    constructor(fileService, notificationService, emailService) {
         this.fileService = fileService;
         this.notificationService = notificationService;
+        this.emailService = emailService;
     }
 
     /**
@@ -401,7 +403,7 @@ export default class ForumController {
                 ForumThread.countDocuments(filter)
             ]);
 
-           // Obtener el conteo de comentarios y likes para cada hilo
+            // Obtener el conteo de comentarios y likes para cada hilo
             const threadsWithStats = await Promise.all(
                 threads.map(async thread => {
                     const commentCount = await ForumComment.countDocuments({ thread: thread._id });
@@ -1087,4 +1089,320 @@ export default class ForumController {
             }))
         };
     }
+
+    /**
+     * @method createReport
+     * @description Crea un reporte
+     */
+    createReport = async (req, res, next) => {
+        try {
+            const { threadId, commentId, reason, description } = req.body;
+            const reporterId = req.user.id;
+
+            // Verificar que el contenido exista
+            // let content;
+
+            const thread = await ForumThread.findById(threadId);
+            if (threadId) {
+                if (!thread) throw new AppError('Hilo no encontrado', 404, 'THREAD_NOT_FOUND');
+            }
+
+            const comment = commentId ? await ForumComment.findById(commentId) : null;
+            if (commentId) {
+                if (!comment) throw new AppError('Comentario no encontrado', 404, 'COMMENT_NOT_FOUND');
+            }
+
+            // Crear el reporte
+            const report = await ForumReport.create({
+                reporter: reporterId,
+                thread: threadId,
+                comment: commentId,
+                reason,
+                description
+            });
+
+            // Notificar a los admins
+            await this.notificationService.notifyAdminsAboutReport(report.toObject(), req.user.username, thread, comment);
+
+            res.status(201).json({
+                success: true,
+                data: report
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method getReports
+     * @description Obtiene los reportes
+     */
+    getReports = async (req, res, next) => {
+        try {
+            const { status, page = 1, limit = 10 } = req.query;
+            const skip = (page - 1) * limit;
+
+            const filter = {};
+            if (status) filter.status = status;
+
+            const [reports, total] = await Promise.all([
+                ForumReport.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(parseInt(limit))
+                    .populate('reporter', 'username profilePicture')
+                    .populate('thread', 'title')
+                    .populate('comment', 'content'),
+                ForumReport.countDocuments(filter)
+            ]);
+
+            res.json({
+                success: true,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit),
+                    limit: parseInt(limit)
+                },
+                data: reports
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method getReportById
+     * @description Obtiene un reporte por ID
+     */
+    getReportById = async (req, res, next) => {
+        try {
+            const { reportId } = req.params;
+
+            const report = await ForumReport.findById(reportId)
+                .populate('reporter', 'username profilePicture')
+                .populate('thread', 'title content author')
+                .populate('comment', 'content author')
+                .populate('resolvedBy', 'username');
+
+            if (!report) {
+                throw new AppError('Reporte no encontrado', 404, 'REPORT_NOT_FOUND');
+            }
+
+            res.json({
+                success: true,
+                data: report
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method resolveReport
+     * @description Resuelve un reporte
+     */
+    resolveReport = async (req, res, next) => {
+        try {
+            const { reportId } = req.params;
+            const { action, message, severity = 'medium', suspensionDuration } = req.body;
+            const adminId = req.user.id;
+
+            const report = await ForumReport.findById(reportId)
+                .populate('reporter', 'username')
+                .populate('thread', 'title')
+                .populate('comment', 'content');
+
+            if (!report) {
+                throw new AppError('Reporte no encontrado', 404, 'REPORT_NOT_FOUND');
+            }
+
+            if (report.status !== 'pending') {
+                throw new AppError('Este reporte ya fue procesado', 400, 'REPORT_ALREADY_PROCESSED');
+            }
+
+            // Realizar acción según lo decidido por el admin
+            let contentDeleted = false;
+            if (action === 'deleted' || action === 'warning') {
+                const contentAuthorId = report.comment
+                    ? (await ForumComment.findById(report.comment).select('author')).author
+                    : (await ForumThread.findById(report.thread).select('author')).author;
+
+                if (action === 'deleted') {
+                    if (report.comment) {
+                        await ForumComment.findByIdAndDelete(report.comment._id);
+                        contentDeleted = true;
+                    } else if (report.thread) {
+                        await ForumThread.findByIdAndDelete(report.thread._id);
+                        contentDeleted = true;
+                    }
+                }
+
+                const messageNotification = action === 'deleted' ? 'sido eliminado' : 'recibido una advertencia';
+
+                await this.notificationService.sendWarningNotification({
+                    targetUserId: contentAuthorId,
+                    senderId: adminId,
+                    senderUsername: req.user.username,
+                    message: `Tu ${report.comment ? 'comentario' : 'hilo'} "${report.comment ? report.comment.content : report.thread.title}" ha ${messageNotification} por incumplir nuestras normas. ${message ? `Nota del administrador: ${message}` : ''}`,
+                    context: {
+                        threadId: report.thread?.id,
+                        commentId: report.comment?.id,
+                        reportId: report.id
+                    },
+                    warningType: 'content_warning',
+                    severity
+                });
+
+                // Registrar la advertencia en la base de datos
+                await User.findByIdAndUpdate(contentAuthorId, {
+                    $push: {
+                        warnings: {
+                            type: 'content',
+                            reason: report.reason,
+                            content: report.comment ? 'comment' : 'thread',
+                            contentId: report.comment ? report.comment?.id : report.thread?.id,
+                            adminId: adminId,
+                            message: message,
+                            date: new Date()
+                        }
+                    }
+                });
+            }
+            else if (action === 'banned_user') {
+                const contentAuthorId = report.comment
+                    ? (await ForumComment.findById(report.comment).select('author')).author
+                    : (await ForumThread.findById(report.thread).select('author')).author;
+
+                // Obtener el usuario para su email
+                const user = await User.findById(contentAuthorId).select('email');
+
+                // Obtener preview del contenido ofensivo
+                let contentPreview = '';
+                let contentType = '';
+
+                if (report.comment) {
+                    const comment = await ForumComment.findById(report.comment).select('content');
+                    contentPreview = comment.content.substring(0, 200) + (comment.content.length > 200 ? '...' : '');
+                    contentType = 'comment';
+
+                    // Borrar el comentario
+                    await ForumComment.findByIdAndDelete(report.comment._id);
+                    contentDeleted = true;
+
+                } else {
+                    const thread = await ForumThread.findById(report.thread).select('title content');
+                    contentPreview = thread.title + '\n\n' + thread.content.substring(0, 200) + (thread.content.length > 200 ? '...' : '');
+                    contentType = 'thread';
+
+                    // Borrar el hilo
+                    await ForumThread.findByIdAndDelete(report.thread._id);
+                    contentDeleted = true;
+                }
+
+                // Calcular la fecha de suspensión
+                const suspensionEnd = suspensionDuration ? new Date(Date.now() + suspensionDuration) : null;
+
+                // Suspender al usuario
+                await User.findByIdAndUpdate(contentAuthorId, {
+                    isActive: false,
+                    $push: {
+                        suspensions: {
+                            type: 'ban',
+                            reason: report.reason,
+                            contentId: report.comment?.id || report.thread?.id,
+                            adminId: adminId,
+                            message: message,
+                            date: new Date(),
+                            until: suspensionEnd // null = permanente
+                        }
+                    }
+                });
+
+                // Enviar email de notificación
+                await this.emailService.sendAccountSuspensionEmail(user.email, {
+                    reason: report.reason,
+                    until: suspensionEnd, // null para baneo permanente
+                    adminNote: message,
+                    contentType,
+                    contentPreview
+                });
+            }
+
+            // Actualizar el reporte
+            report.status = 'resolved';
+            report.adminAction = action;
+            report.resolvedBy = adminId;
+            await report.save();
+
+            // Notificar al usuario que reportó
+            await this.notificationService.notifyUserAboutReportResolution(report, contentDeleted);
+
+            res.json({
+                success: true,
+                data: report,
+                message: 'Reporte resuelto exitosamente'
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method deleteReport
+     * @description Elimina un reporte que no esté en estado 'pending'
+     */
+    deleteReport = async (req, res, next) => {
+        try {
+            const { reportId } = req.params;
+
+            const report = await ForumReport.findById(reportId);
+
+            if (!report) {
+                throw new AppError('Reporte no encontrado', 404, 'REPORT_NOT_FOUND');
+            }
+
+            if (report.status === 'pending') {
+                throw new AppError('No se puede eliminar un reporte pendiente', 400, 'CANNOT_DELETE_PENDING_REPORT');
+            }
+
+            const deletedReport = await ForumReport.findByIdAndDelete(reportId);
+
+            res.json({
+                success: true,
+                message: 'Reporte eliminado exitosamente',
+                data: deletedReport
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * @method deleteNonPendingReports
+     * @description Elimina todos los reportes que no estén en estado 'pending' (Admin)
+     */
+    deleteNonPendingReports = async (req, res, next) => {
+        try {
+            const result = await ForumReport.deleteMany({
+                status: { $ne: 'pending' }
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    deletedCount: result.deletedCount
+                },
+                message: `Se eliminaron ${result.deletedCount} reportes que no estaban en estado 'pending'`
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    };
 }

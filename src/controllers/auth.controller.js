@@ -593,6 +593,30 @@ export default class AuthController {
                 );
             }
 
+            // Verificar estado de suspensión
+            const { wasSuspended, isNowActive } = await user.checkSuspensionStatus();
+            if (wasSuspended) {
+                throw new AppError(
+                    'Cuenta suspendida',
+                    403,
+                    'ACCOUNT_SUSPENDED',
+                    {
+                        action: 'login_blocked',
+                        context: 'security',
+                        userId: user._id,
+                        status: {
+                            wasSuspended: true,
+                            isNowActive: false
+                        },
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Actualizar último acceso
+            user.lastLogin = new Date();
+            await user.save();
+
             // Verificar si la cuenta está activa y verificada
             if (!user.isVerified || !user.isActive) {
                 throw new AppError(

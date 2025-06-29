@@ -2009,3 +2009,214 @@
  *                 type: string
  *                 enum: [image, video, document]
  */
+
+// =============================================
+// Sección 15: Esquemas de Reportes
+// =============================================
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ForumReport:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439021"
+ *         reporter:
+ *           id:
+ *             type: string
+ *             format: mongo-id
+ *             example: "507f1f77bcf86cd799439022"
+ *         thread:
+ *           id:
+ *             type: string
+ *             format: mongo-id
+ *             example: "507f1f77bcf86cd799439021"
+ *         comment:
+ *           id:
+ *             type: string
+ *             format: mongo-id
+ *             example: "507f1f77bcf86cd799439022"
+ *         reason:
+ *           type: string
+ *           enum: [spam, inappropriate, harassment, other]
+ *           example: "inappropriate"
+ *         description:
+ *           type: string
+ *           example: "El contenido contiene lenguaje ofensivo"
+ *         status:
+ *           type: string
+ *           enum: [pending, resolved, rejected]
+ *           example: "pending"
+ *         adminAction:
+ *           type: string
+ *           enum: [deleted, warning, no_action, banned_user]
+ *           example: "deleted"
+ *         resolvedBy:
+ *           id:
+ *             type: string
+ *             format: mongo-id
+ *             example: "507f1f77bcf86cd799439022"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *
+ *     ReportRequest:
+ *       type: object
+ *       required:
+ *         - reason
+ *       properties:
+ *         threadId:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439011"
+ *           description: ID del hilo reportado (debe proporcionar threadId o commentId)
+ *         commentId:
+ *           type: string
+ *           format: mongo-id
+ *           example: "507f1f77bcf86cd799439012"
+ *           description: ID del comentario reportado (debe proporcionar threadId o commentId)
+ *         reason:
+ *           type: string
+ *           enum: [spam, inappropriate, harassment, other]
+ *           example: "inappropriate"
+ *         description:
+ *           type: string
+ *           maxLength: 500
+ *           example: "El contenido contiene lenguaje ofensivo"
+ *
+ *     ResolveReportRequest:
+ *       type: object
+ *       required:
+ *         - action
+ *       properties:
+ *         action:
+ *           type: string
+ *           enum: [deleted, warning, no_action, banned_user]
+ *           example: "deleted"
+ *         message:
+ *           type: string
+ *           maxLength: 200
+ *           example: "El contenido viola nuestras normas de comunidad"
+ *         severity:
+ *           type: string
+ *           enum: [low, medium, high]
+ *           default: "medium"
+ *         suspensionDuration:
+ *           type: integer
+ *           description: Duración en milisegundos (solo para action=banned_user)
+ *           example: 604800000
+ *
+ *     ReportListResponse:
+ *       type: object
+ *       properties:
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ForumReport'
+ *         pagination:
+ *           $ref: '#/components/schemas/Pagination'
+ */
+
+/**
+ * @swagger
+ * components:
+ *   parameters:
+ *     reportId:
+ *       in: path
+ *       name: reportId
+ *       required: true
+ *       schema:
+ *         type: string
+ *         format: mongo-id
+ *       description: ID del reporte
+ *       example: "507f1f77bcf86cd799439021"
+ *
+ *     reportStatus:
+ *       in: query
+ *       name: status
+ *       schema:
+ *         type: string
+ *         enum: [pending, resolved, rejected]
+ *       description: Filtrar reportes por estado
+ *       example: "pending"
+ */
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     ReportSuccess:
+ *       description: Operación con reporte exitosa
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForumReport'
+ *
+ *     ReportListSuccess:
+ *       description: Lista de reportes obtenida exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReportListResponse'
+ *
+ *     ReportNotFound:
+ *       description: Reporte no encontrado
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             notFound:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "REPORT_404"
+ *                   message: "Reporte no encontrado"
+ */
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     CannotDeletePendingReport:
+ *       description: No se puede eliminar un reporte pendiente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           examples:
+ *             pendingReport:
+ *               value:
+ *                 success: false
+ *                 error:
+ *                   code: "CANNOT_DELETE_PENDING_REPORT"
+ *                   message: "No se puede eliminar un reporte pendiente"
+ */
+
+/**
+ * @swagger
+ * components:
+ *   responses:
+ *     ReportsCleanupSuccess:
+ *       description: Reportes no pendientes eliminados exitosamente
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   deletedCount:
+ *                     type: integer
+ *               message:
+ *                 type: string
+ */
