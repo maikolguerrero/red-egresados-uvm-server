@@ -840,7 +840,7 @@ export default class ContentController {
 
             res.json({
                 success: true,
-                data: savedContentObject.featuredSections[sectionIndex].subsections[subsectionIndex],
+                data: savedContentObject.featuredSections[sectionIndex].subsections[subsectionIndex].image,
                 message: 'Imagen y subsección guardadas correctamente'
             });
 

@@ -47,9 +47,15 @@ export default class ForumController {
                 ip: req.ip
             });
 
+            // Agregar datos del usuario al hilo
+            const threadData = { 
+                ...thread.toObject(), 
+                author: { username: req.user.username, profilePicture: req.user.profilePicture } 
+            };
+
             res.status(201).json({
                 success: true,
-                data: thread
+                data: threadData
             });
         } catch (error) {
             next(error);
