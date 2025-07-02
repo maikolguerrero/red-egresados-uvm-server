@@ -133,3 +133,9 @@ export const resendVerificationSchema = yup.object().shape({
         .email('Ingrese un email válido')
         .required('El email es requerido')
 });
+
+// Esquema para cambio de email
+export const changeEmailSchema = yup.object().shape({
+    newEmail: emailSchema,
+    currentPassword: passwordSchema
+});

@@ -1155,4 +1155,211 @@ export default class AuthController {
             next(error);
         }
     }
+
+    /**
+     * @method
+     * @async
+     * @description Cambia el email del usuario autenticado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 401 si la contraseña actual es incorrecta
+     *  - 409 si el nuevo email ya está en uso
+     *  - 500 si falla el envío del email de verificación
+     */
+    changeEmail = async (req, res, next) => {
+        try {
+            const { newEmail, currentPassword } = req.body;
+            const user = req.user;
+
+            req.logger.debug('Inicio de cambio de email', {
+                userId: user._id,
+                newEmail,
+                ip: req.ip
+            });
+
+            // Buscar contraseña actual
+            const userPassword = await User.findById(user.id, 'password');
+
+            // Verificar que la contraseña actual sea correcta
+            const isMatch = await bcrypt.compare(currentPassword, userPassword.password);
+            if (!isMatch) {
+                throw new AppError(
+                    'Contraseña actual incorrecta',
+                    401,
+                    'INVALID_PASSWORD',
+                    {
+                        action: 'change_email_attempt',
+                        context: 'security',
+                        userId: user._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no esté en uso
+            const emailExists = await User.findOne({ email: newEmail });
+            if (emailExists) {
+                throw new AppError(
+                    'El nuevo email ya está en uso',
+                    409,
+                    'EMAIL_ALREADY_EXISTS',
+                    {
+                        action: 'change_email_conflict',
+                        context: 'validation',
+                        userId: user._id,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Generar token de verificación para el nuevo email
+            const verificationToken = this.emailService.generateVerificationToken();
+            const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+            // Guardar el nuevo email pendiente de verificación
+            user.pendingEmail = newEmail;
+            user.emailVerificationToken = verificationToken;
+            user.emailVerificationTokenExpires = verificationTokenExpires;
+            await user.save();
+
+            // Enviar email de verificación al nuevo correo
+            const emailResult = await this.emailService.sendEmailChangeVerification(
+                newEmail,
+                verificationToken
+            );
+
+            if (!emailResult.success) {
+                throw new AppError(
+                    'No se pudo enviar el email de verificación. Por favor intenta nuevamente.',
+                    500,
+                    'EMAIL_SEND_FAILURE',
+                    {
+                        action: 'change_email_send_failed',
+                        context: 'email_service',
+                        userId: user._id,
+                        newEmail,
+                        error: emailResult.error,
+                        isCritical: true
+                    }
+                );
+            }
+
+            req.logger.info('Solicitud de cambio de email exitosa', {
+                userId: user._id,
+                oldEmail: user.email,
+                newEmail,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Se ha enviado un enlace de verificación a tu nuevo correo. Por favor verifícalo para completar el cambio.'
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Verifica el cambio de email mediante token
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.validatedQuery.token - Token de verificación
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     *  - 404 si no se encuentra usuario con ese token
+     */
+    verifyEmailChange = async (req, res, next) => {
+        try {
+            const { token } = req.query;
+
+            req.logger.debug('Verificación de cambio de email', {
+                tokenPresent: !!token,
+                ip: req.ip
+            });
+
+            // Buscar usuario con token válido y email pendiente
+            const user = await User.findOne({
+                emailVerificationToken: token,
+                emailVerificationTokenExpires: { $gt: new Date() },
+                pendingEmail: { $exists: true, $ne: null }
+            }).select('+emailVerificationToken +emailVerificationTokenExpires +pendingEmail');
+
+            req.logger.debug('Usuario encontrado', {
+                userId: user._id,
+                oldEmail: user.email,
+                newEmail: user.pendingEmail,
+                ip: req.ip
+            });
+
+            if (!user) {
+                throw new AppError(
+                    'Token inválido o expirado',
+                    400,
+                    'INVALID_EMAIL_CHANGE_TOKEN',
+                    {
+                        action: 'verify_email_change',
+                        context: 'security',
+                        tokenPresent: !!token,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Actualizar el email y limpiar campos temporales
+            const oldEmail = user.email;
+            req.logger.debug('Email cambiado', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.pendingEmail,
+                ip: req.ip
+            });
+            user.email = user.pendingEmail;
+            user.pendingEmail = undefined;
+            user.emailVerificationToken = undefined;
+
+            user.emailVerificationTokenExpires = undefined;
+            req.logger.debug('datos de user', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.email,
+                ip: req.ip
+            });
+            req.logger.debug('email', {
+                email: user.email
+            });
+            await user.save();
+
+            req.logger.info('Email cambiado exitosamente', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.email,
+                ip: req.ip
+            });
+
+            // Enviar notificación al antiguo email
+            await this.emailService.sendEmailChangeNotification(oldEmail);
+
+            res.json({
+                success: true,
+                message: 'Email actualizado correctamente',
+                data: {
+                    id: user._id,
+                    newEmail: user.email
+                }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
 }

@@ -172,6 +172,22 @@ const UserSchema = new mongoose.Schema({
     },
 
     /**
+     * Cambio de email
+     */
+    pendingEmail: {
+        type: String,
+        select: false
+    },
+    emailVerificationToken: {
+        type: String,
+        select: false
+    },
+    emailVerificationTokenExpires: {
+        type: Date,
+        select: false
+    },
+
+    /**
      * Gestión de sesión
      */
     lastLogin: Date,
@@ -293,6 +309,9 @@ const UserSchema = new mongoose.Schema({
             delete ret.verificationTokenExpires;
             delete ret.resetPasswordToken;
             delete ret.resetPasswordExpires;
+            delete ret.pendingEmail;
+            delete ret.emailVerificationToken;
+            delete ret.emailVerificationTokenExpires;
             delete ret.createdAt;
             delete ret.updatedAt;
             return ret;
@@ -309,6 +328,9 @@ const UserSchema = new mongoose.Schema({
             delete ret.verificationTokenExpires;
             delete ret.resetPasswordToken;
             delete ret.resetPasswordExpires;
+            delete ret.pendingEmail;
+            delete ret.emailVerificationToken;
+            delete ret.emailVerificationTokenExpires;
             delete ret.createdAt;
             delete ret.updatedAt;
             return ret;

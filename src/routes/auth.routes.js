@@ -9,7 +9,8 @@ import {
     forgotPasswordSchema,
     resetPasswordSchema,
     emailVerificationSchema,
-    resendVerificationSchema
+    resendVerificationSchema,
+    changeEmailSchema
 } from '../schemas/auth.schemas.js';
 
 /**
@@ -785,6 +786,119 @@ export default function authRoutes(emailService) {
      *                     message: "Error al guardar nueva contraseña"
      */
     router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+
+    /**
+     * @swagger
+     * /api/auth/change-email:
+     *   post:
+     *     summary: Solicitar cambio de email
+     *     description: |
+     *       Permite a un usuario autenticado solicitar un cambio de email.
+     *       Requiere confirmación mediante un enlace enviado al nuevo email.
+     *     tags: [Autenticación]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - newEmail
+     *               - currentPassword
+     *             properties:
+     *               newEmail:
+     *                 type: string
+     *                 format: email
+     *                 example: "nuevo.correo@uvm.edu.ve"
+     *                 description: Nuevo email a verificar
+     *               currentPassword:
+     *                 type: string
+     *                 format: password
+     *                 description: Contraseña actual para confirmar la identidad
+     *     responses:
+     *       200:
+     *         description: Solicitud exitosa, se ha enviado un email de verificación
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Se ha enviado un enlace de verificación a tu nuevo correo"
+     *       400:
+     *         description: Validación fallida
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         description: No autorizado (contraseña incorrecta o no autenticado)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       409:
+     *         description: El nuevo email ya está en uso
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/change-email', authenticate, validate(changeEmailSchema), authController.changeEmail);
+
+    /**
+     * @swagger
+     * /api/auth/verify-email-change:
+     *   get:
+     *     summary: Verificar cambio de email
+     *     description: |
+     *       Confirma el cambio de email usando un token recibido por correo.
+     *       El token es válido por 24 horas.
+     *     tags: [Autenticación]
+     *     parameters:
+     *       - in: query
+     *         name: token
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Token de verificación recibido por email
+     *     responses:
+     *       200:
+     *         description: Email cambiado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Email actualizado correctamente"
+     *                 data:
+     *                   type: object
+     *                   properties:
+     *                     id:
+     *                       type: string
+     *                       format: mongo-id
+     *                     newEmail:
+     *                       type: string
+     *                       format: email
+     *       400:
+     *         description: Token inválido o expirado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/verify-email-change', authController.verifyEmailChange);
 
     return router;
 }

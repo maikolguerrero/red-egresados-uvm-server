@@ -48,9 +48,9 @@ export default class ForumController {
             });
 
             // Agregar datos del usuario al hilo
-            const threadData = { 
-                ...thread.toObject(), 
-                author: { username: req.user.username, profilePicture: req.user.profilePicture } 
+            const threadData = {
+                ...thread.toObject(),
+                author: { username: req.user.username, profilePicture: req.user.profilePicture }
             };
 
             res.status(201).json({
@@ -1301,7 +1301,7 @@ export default class ForumController {
 
                 } else {
                     const thread = await ForumThread.findById(report.thread).select('title content');
-                    contentPreview = thread.title + '\n\n' + thread.content.substring(0, 200) + (thread.content.length > 200 ? '...' : '');
+                    contentPreview = '"' + thread.title + '":\n\n' + thread.content.substring(0, 200) + (thread.content.length > 200 ? '...' : '');
                     contentType = 'thread';
 
                     // Borrar el hilo
