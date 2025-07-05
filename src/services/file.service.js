@@ -378,14 +378,17 @@ export default class FileService {
                 // Verificar tipo de archivo
                 const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
                 const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+                const allowedTextTypes = ['text/csv', 'application/vnd.ms-excel'];
 
                 let allowedTypes;
                 if (type === 'image') {
                     allowedTypes = allowedImageTypes;
                 } else if (type === 'video') {
                     allowedTypes = allowedVideoTypes;
-                } else if (type === 'media') {
-                    allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
+                } else if (type === 'text') {
+                    allowedTypes = allowedTextTypes;
+                } else { // 'media'
+                    allowedTypes = [...allowedImageTypes, ...allowedVideoTypes, ...allowedTextTypes];
                 }
 
                 if (!allowedTypes.includes(file.mimetype)) {

@@ -78,7 +78,20 @@ const UserProfileSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  // Sección Contacto
+
+  /**
+   * Datos Personales
+   */
+  personalData: {
+    // Fecha de nacimiento
+    birthDate: Date,
+    // Ubicación
+    location: String,
+  },
+
+  /**
+   * Sección Contacto
+   */
   contact: {
     phone: {
       type: String,

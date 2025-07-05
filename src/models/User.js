@@ -33,7 +33,8 @@ import mongoose from 'mongoose';
  * @property {boolean} isVerified - Indica si el email fue verificado
  * @property {boolean} isActive - Indica si la cuenta está habilitada
  * @property {Date} lastLogin - Fecha del último acceso
- * @property {mongoose.Types.ObjectId} [alumni] - Referencia a Alumni (solo role=egresado)
+ * @property {Array<mongoose.Types.ObjectId>} [pregrado] - Referencia a Egresados Pregrado (solo role=egresado)
+ * @property {Array<mongoose.Types.ObjectId>} [postgrado] - Referencia a Egresados Postgrado (solo role=egresado)
  * @property {string} [fullName] - Nombre completo (solo role=admin)
  * @property {Date} createdAt - Fecha de creación (auto)
  * @property {Date} updatedAt - Fecha de actualización (auto)
@@ -51,14 +52,22 @@ import mongoose from 'mongoose';
  * @see {@link https://mongoosejs.com/docs/guide.html|Mongoose Schemas}
  */
 const UserSchema = new mongoose.Schema({
+
     /**
-     * Relación con Alumni (solo egresados)
+     * Relación con Egresados Pregrado
      */
-    alumni: {
+    pregrado: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Alumni',
-        required: function () { return this.role === 'egresado'; }
-    },
+        ref: 'EgresadoPregrado'
+    }],
+
+    /**
+     * Relación con Egresados Postgrado
+     */
+    postgrado: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'EgresadoPostgrado'
+    }],
 
     /**
      * Relación con UserProfile
@@ -66,6 +75,16 @@ const UserSchema = new mongoose.Schema({
     profile: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'UserProfile'
+    },
+
+    /**
+     * Cédula
+     */
+    cedula: {
+        type: String,
+        required: true,
+        unique: true,
+        match: [/^[VE]-\d+$/, 'Formato cédula inválido (Ej: V-12345678)']
     },
 
     /**
@@ -338,13 +357,29 @@ const UserSchema = new mongoose.Schema({
     }
 });
 
+// Virtual para acceder fácilmente a los datos de pregrado
+UserSchema.virtual('pregradoData', {
+    ref: 'EgresadoPregrado',
+    localField: 'pregrado',
+    foreignField: '_id'
+});
+
+// Virtual para acceder fácilmente a los datos de postgrado
+UserSchema.virtual('postgradoData', {
+    ref: 'EgresadoPostgrado',
+    localField: 'postgrado',
+    foreignField: '_id'
+});
+
+// Indices para cédula
+UserSchema.index({ cedula: 1 });
+
 // Middleware para actualizar lastSeen al desconectarse
 UserSchema.methods.updateLastSeen = async function () {
     this.isOnline = false;
     this.lastSeen = new Date();
     await this.save();
 };
-
 
 /**
  * @method checkSuspensionStatus

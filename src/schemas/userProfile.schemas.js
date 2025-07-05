@@ -50,6 +50,10 @@ export const profileUpdateSchema = yup.object().shape({
     .max(100, 'El nombre completo no puede exceder 100 caracteres')
     .transform(value => value ? value.replace(/\s+/g, ' ').trim() : value) // Asegurar que value no sea null/undefined
     .nullable(),
+  personalData: yup.object().shape({
+    birthDate: yup.date().nullable(),
+    location: yup.string().nullable()
+  }).nullable(),
   contact: yup.object().shape({
     phone: yup.string()
       .matches(/^\+?\d{7,15}$/, 'Número telefónico inválido')

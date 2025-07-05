@@ -51,35 +51,13 @@ const dateSchema = yup.date()
 // Esquema para registro de egresados
 export const alumniRegistrationSchema = yup.object().shape({
     // Datos personales
-    idNumber: yup.string()
+    cedula: yup.string()
         .matches(/^[VE]-\d+$/, 'Formato cédula inválido (Ej: V-12345678)')
         .required('La cédula es requerida'),
-    firstName: yup.string()
+    nombreCompleto: yup.string()
         .min(2, 'El nombre debe tener al menos 2 caracteres')
-        .max(50, 'El nombre no puede exceder 50 caracteres')
+        .max(100, 'El nombre no puede exceder 100 caracteres')
         .required('El nombre es requerido'),
-    lastName: yup.string()
-        .min(2, 'El apellido debe tener al menos 2 caracteres')
-        .max(50, 'El apellido no puede exceder 50 caracteres'),
-    birthDate: dateSchema.required('La fecha de nacimiento es requerida'),
-    // Datos académicos
-    studentId: yup.string().required('Número de expediente requerido'),
-    degree: yup.string()
-        .oneOf([
-            'Licenciatura en Administración de Empresas',
-            'Licenciatura en Contaduría Pública',
-            'Ingeniería de Computación',
-            'Ingeniería Industrial',
-            'Derecho',
-            'Ciencias Políticas y Administrativas'
-        ], 'Carrera no válida')
-        .required('La carrera es requerida'),
-    graduationDate: dateSchema.required('La fecha de graduación es requerida'),
-    mention: yup.string()
-        .max(100, 'La mención no puede exceder 100 caracteres')
-        .nullable(),
-    // Contacto
-    location: yup.string().max(100, 'La ubicación no puede exceder 100 caracteres'),
     // Registro
     ...registerSchema
 });

@@ -460,23 +460,31 @@ export default class ChatService {
       const userIds = conversationsArray.map(c => c.userId);
 
       const users = await User.find({ _id: { $in: userIds } })
-        .select('username profilePicture fullName')
+        .select('username profilePicture')
         .populate({
-          path: 'alumni',
-          select: 'firstName lastName'
+          path: 'pregrado',
+          select: 'nombreCompleto -_id',
+          options: { limit: 1 } // Solo necesitamos el primer registro para el nombre
+        })
+        .populate({
+          path: 'postgrado',
+          select: 'nombreCompleto -_id',
+          options: { limit: 1 } // Solo necesitamos el primer registro para el nombre
         })
         .lean();
 
       // 4. Combinar la información
       const conversations = conversationsArray.map(conv => {
         const user = users.find(u => u._id.equals(conv.userId));
-        const alumni = user.alumni;
+        // const alumni = user.alumni;
 
         return {
           userId: conv.userId,
           username: user.username,
-          firstName: alumni?.firstName || user.fullName?.split(' ')[0] || user.username,
-          lastName: alumni?.lastName || user.fullName?.split(' ').slice(1).join(' ') || '',
+          // Obtener el nombreCompleto del primer pregrado o postgrado
+          nombreCompleto: user.pregrado?.[0]?.nombreCompleto ||
+            user.postgrado?.[0]?.nombreCompleto ||
+            user.username,
           profilePicture: user.profilePicture,
           lastMessage: conv.lastMessage,
           unreadCount: conv.unreadCount

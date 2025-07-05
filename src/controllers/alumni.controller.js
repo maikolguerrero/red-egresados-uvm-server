@@ -1,15 +1,21 @@
 /**
  * @fileoverview Controlador para operaciones de egresados
  * @module controllers/alumni.controller
- * @requires ../models/Alumni
+ * @requires stream
+ * @requires readline
  * @requires ../models/User
  * @requires ../models/UserProfile
+ * @requires ../models/EgresadoPregrado
+ * @requires ../models/EgresadoPostgrado
  * @requires AppError
  */
 
-import Alumni from '../models/Alumni.js';
+import { Readable } from 'stream';
+import { createInterface } from 'readline';
 import User from '../models/User.js';
 import UserProfile from '../models/UserProfile.js';
+import EgresadoPregrado from '../models/EgresadoPregrado.js';
+import EgresadoPostgrado from '../models/EgresadoPostgrado.js';
 import AppError from '../middlewares/AppError.js';
 
 /**
@@ -37,10 +43,71 @@ export default class AlumniController {
     constructor(fileService) {
         this.fileService = fileService;
     }
+
+    /**
+     * @method checkAlumni
+     * @async
+     * @description Verifica si una cédula corresponde a un egresado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el resultado
+     */
+    checkAlumni = async (req, res, next) => {
+        try {
+            const { cedula } = req.params;
+
+            req.logger.debug('Verificando egresado', {
+                cedula,
+                ip: req.ip
+            });
+
+            // Buscar en pregrado y postgrado simultáneamente
+            const [pregrados, postgrados] = await Promise.all([
+                EgresadoPregrado.find({ cedula }),
+                EgresadoPostgrado.find({ cedula })
+            ]);
+
+            if (pregrados.length === 0 && postgrados.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    esEgresado: false,
+                    mensaje: 'No se encontró egresado con esta cédula'
+                });
+            }
+
+            // Obtener nombre del primer registro encontrado
+            const nombreCompleto = pregrados[0]?.nombreCompleto || postgrados[0]?.nombreCompleto;
+
+            // Formatear respuesta
+            const response = {
+                success: true,
+                esEgresado: true,
+                datos: {
+                    nombreCompleto,
+                    cedula,
+                    carrerasPregrado: pregrados.map(p => ({
+                        carrera: p.carrera,
+                        fechaGrado: p.fechaGrado
+                    })),
+                    programasPostgrado: postgrados.map(p => ({
+                        programa: p.programa,
+                        fechaGrado: p.fechaGrado
+                    }))
+                }
+            };
+
+            res.json(response);
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
     /**
      * @method searchAlumni
      * @async
-     * @description Busca egresados según criterios especificados
+     * @description Busca egresados según criterios especificados (todos los filtros se aplican simultáneamente)
      * @param {Object} req - Objeto de petición Express
      * @param {Object} res - Objeto de respuesta Express
      * @param {Function} next - Función para pasar al siguiente middleware
@@ -48,63 +115,153 @@ export default class AlumniController {
      */
     searchAlumni = async (req, res, next) => {
         try {
-            const { query, degree, graduationYear, location, username } = req.query;
+            const { query, degree, graduationYear, location } = req.query;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const skip = (page - 1) * limit;
 
             req.logger.debug('Inicio búsqueda de egresados', {
-                ip: req.ip
+                ip: req.ip,
+                queryParams: req.query
             });
 
-            // Construir filtro para Alumni
-            const alumniFilter = {
-                isRegistered: true,
-                ...(degree && { degree }),
-                ...(graduationYear && {
-                    graduationDate: {
-                        $gte: new Date(`${graduationYear}-01-01`),
-                        $lte: new Date(`${graduationYear}-12-31`)
-                    }
-                }),
-                ...(location && { location: { $regex: location, $options: 'i' } })
+            // 1. Filtro base para usuarios egresados activos
+            const userFilter = {
+                role: 'egresado',
+                isActive: true,
+                isVerified: true
             };
 
-            // Filtro adicional si se busca por username
-            if (username) {
-                const users = await User.find({
-                    username: { $regex: username, $options: 'i' },
-                    role: 'egresado'
+            // 2. Obtener todos los IDs que cumplen con cada filtro individual
+            const filterConditions = [];
+
+            // Filtro por carrera/programa
+            if (degree) {
+                const [pregradoIds, postgradoIds] = await Promise.all([
+                    EgresadoPregrado.find({ carrera: { $regex: degree, $options: 'i' } }).select('_id'),
+                    EgresadoPostgrado.find({ programa: { $regex: degree, $options: 'i' } }).select('_id')
+                ]);
+
+                const degreeUserIds = await User.find({
+                    $or: [
+                        { pregrado: { $in: pregradoIds.map(doc => doc._id) } },
+                        { postgrado: { $in: postgradoIds.map(doc => doc._id) } }
+                    ]
                 }).select('_id');
 
-                alumniFilter.user = { $in: users.map(u => u._id) };
+                filterConditions.push({ _id: { $in: degreeUserIds.map(u => u._id) } });
             }
 
-            // Filtro para texto general (nombre, email)
+            // Filtro por año de graduación
+            if (graduationYear) {
+                const startDate = new Date(`${graduationYear}-01-01 00:00:00`);
+                const endDate = new Date(`${graduationYear}-12-31 23:59:59`);
+
+                const [pregradoIds, postgradoIds] = await Promise.all([
+                    EgresadoPregrado.find({ fechaGrado: { $gte: startDate, $lte: endDate } }).select('_id'),
+                    EgresadoPostgrado.find({ fechaGrado: { $gte: startDate, $lte: endDate } }).select('_id')
+                ]);
+
+                const yearUserIds = await User.find({
+                    $or: [
+                        { pregrado: { $in: pregradoIds.map(doc => doc._id) } },
+                        { postgrado: { $in: postgradoIds.map(doc => doc._id) } }
+                    ]
+                }).select('_id');
+
+                filterConditions.push({ _id: { $in: yearUserIds.map(u => u._id) } });
+            }
+
+            // Filtro por ubicación
+            if (location) {
+                const profiles = await UserProfile.find({
+                    'personalData.location': { $regex: location, $options: 'i' }
+                }).select('user');
+                filterConditions.push({ _id: { $in: profiles.map(p => p.user) } });
+            }
+
+            // Filtro por texto general (nombre, email, username, título profesional)
             if (query) {
-                alumniFilter.$or = [
-                    { firstName: { $regex: query, $options: 'i' } },
-                    { lastName: { $regex: query, $options: 'i' } },
-                    { email: { $regex: query, $options: 'i' } }
-                ];
+                const [pregradoIds, postgradoIds, emailProfiles] = await Promise.all([
+                    EgresadoPregrado.find({ nombreCompleto: { $regex: query, $options: 'i' } }).select('_id'),
+                    EgresadoPostgrado.find({ nombreCompleto: { $regex: query, $options: 'i' } }).select('_id'),
+                    UserProfile.find({
+                        $or: [
+                            { 'contact.alternateEmail': { $regex: query, $options: 'i' } },
+                            { 'professional.title': { $regex: query, $options: 'i' } }
+                        ]
+                    }).select('user')
+                ]);
+
+                const textUserIds = await User.find({
+                    $or: [
+                        { pregrado: { $in: pregradoIds.map(doc => doc._id) } },
+                        { postgrado: { $in: postgradoIds.map(doc => doc._id) } },
+                        { _id: { $in: emailProfiles.map(p => p.user) } },
+                        { username: { $regex: query, $options: 'i' } }
+                    ]
+                }).select('_id');
+
+                filterConditions.push({ _id: { $in: textUserIds.map(u => u._id) } });
             }
 
-            // Consulta final con paginación
-            const [total, results] = await Promise.all([
-                Alumni.countDocuments(alumniFilter),
-                Alumni.find(alumniFilter)
+            // 3. Construir el filtro final que debe cumplir TODAS las condiciones
+            const finalFilter = {
+                ...userFilter,
+                ...(filterConditions.length > 0 ? { $and: filterConditions } : {})
+            };
+
+            // 4. Ejecutar consulta final con paginación
+            const [total, users] = await Promise.all([
+                User.countDocuments(finalFilter),
+                User.find(finalFilter)
                     .populate({
-                        path: 'user',
-                        select: '-password -verificationToken -verificationTokenExpires -verificationDate -verificationAttempts -lastVerificationAttempt -resetPasswordToken -resetPasswordExpires -__v -profilePicture.uploadedAt -profilePicture.publicId'
+                        path: 'pregrado',
+                        select: 'nombreCompleto carrera fechaGrado -_id',
+                        options: { sort: { fechaGrado: -1 } }
                     })
-                    .select('-isRegistered -registrationDate -__v')
+                    .populate({
+                        path: 'postgrado',
+                        select: 'nombreCompleto programa fechaGrado -_id',
+                        options: { sort: { fechaGrado: -1 } }
+                    })
+                    .populate({
+                        path: 'profile',
+                        select: 'personalData.location socialMedia professional -_id'
+                    })
+                    .select('-password -__v')
                     .skip(skip)
                     .limit(limit)
-                    .sort({ lastName: 1, firstName: 1 })
+                    .sort({ 'pregrado.nombreCompleto': 1 })
             ]);
 
-            req.logger.info('Búsqueda de egresados exitosa', {
-                ip: req.ip
+            // 5. Formatear resultados
+            const formattedResults = users.map(user => {
+                const carrerasPregrado = user.pregrado?.sort((a, b) => new Date(b.fechaGrado) - new Date(a.fechaGrado)) || [];
+                const programasPostgrado = user.postgrado?.sort((a, b) => new Date(b.fechaGrado) - new Date(a.fechaGrado)) || [];
+
+                const nombreCompleto = carrerasPregrado[0]?.nombreCompleto ||
+                    programasPostgrado[0]?.nombreCompleto ||
+                    user.username;
+
+                return {
+                    id: user._id,
+                    username: user.username,
+                    profilePicture: user.profilePicture,
+                    lastLogin: user.lastLogin,
+                    nombreCompleto,
+                    ubicacion: user.profile?.personalData?.location,
+                    carrerasPregrado: carrerasPregrado.map(p => ({
+                        carrera: p.carrera,
+                        fechaGrado: p.fechaGrado
+                    })),
+                    programasPostgrado: programasPostgrado.map(p => ({
+                        programa: p.programa,
+                        fechaGrado: p.fechaGrado
+                    })),
+                    tituloProfesional: user.profile?.professional?.title,
+                    redesSociales: user.profile?.socialMedia
+                };
             });
 
             res.json({
@@ -115,15 +272,7 @@ export default class AlumniController {
                     pages: Math.ceil(total / limit),
                     limit
                 },
-                data: results.map(item => ({
-                    ...item.toObject(),
-                    user: item.user ? {
-                        username: item.user.username,
-                        profilePicture: item.user.profilePicture,
-                        lastLogin: item.user.lastLogin
-
-                    } : null
-                }))
+                data: formattedResults
             });
 
         } catch (error) {
@@ -131,15 +280,16 @@ export default class AlumniController {
         }
     }
 
+
     /**
-     * @method getAlumniProfileByUsername
-     * @async
-     * @description Obtiene el perfil público de un egresado incluyendo información de UserProfile
-     * @param {Object} req - Objeto de petición Express
-     * @param {Object} res - Objeto de respuesta Express
-     * @param {Function} next - Función para pasar al siguiente middleware
-     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil completo
-     */
+ * @method getAlumniProfileByUsername
+ * @async
+ * @description Obtiene el perfil público de un egresado incluyendo información de UserProfile
+ * @param {Object} req - Objeto de petición Express
+ * @param {Object} res - Objeto de respuesta Express
+ * @param {Function} next - Función para pasar al siguiente middleware
+ * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil completo
+ */
     getAlumniProfileByUsername = async (req, res, next) => {
         try {
             const { username } = req.params;
@@ -157,8 +307,14 @@ export default class AlumniController {
             })
                 .select('-password -verificationToken -verificationTokenExpires -verificationDate -verificationAttempts -lastVerificationAttempt -resetPasswordToken -resetPasswordExpires -__v -profilePicture.uploadedAt')
                 .populate({
-                    path: 'alumni',
-                    select: '-__v -studentId -idNumber -isRegistered -registrationDate -createdAt -updatedAt'
+                    path: 'pregrado',
+                    select: 'nombreCompleto cedula carrera fechaGrado -_id',
+                    options: { sort: { fechaGrado: -1 } } // Ordenar por fecha de grado descendente
+                })
+                .populate({
+                    path: 'postgrado',
+                    select: 'nombreCompleto cedula programa fechaGrado -_id',
+                    options: { sort: { fechaGrado: -1 } } // Ordenar por fecha de grado descendente
                 })
                 .populate({
                     path: 'profile',
@@ -173,8 +329,9 @@ export default class AlumniController {
                 });
             }
 
-            if (!user?.alumni) {
-                throw new AppError('Datos de egresado no encontrados', 404, 'ALUMNI_DATA_NOT_FOUND', {
+            // Verificar que tenga al menos una carrera de pregrado o postgrado
+            if ((!user.pregrado || user.pregrado.length === 0) && (!user.postgrado || user.postgrado.length === 0)) {
+                throw new AppError('Datos académicos no encontrados', 404, 'ACADEMIC_DATA_NOT_FOUND', {
                     action: 'get_public_profile',
                     username,
                     userId: user._id,
@@ -182,20 +339,38 @@ export default class AlumniController {
                 });
             }
 
+            console.log(user);
+
+            // Obtener datos básicos del primer registro de pregrado o postgrado (el más reciente por el sort)
+            const primerRegistro = user.pregrado?.[0] || user.postgrado?.[0];
+            const datosBasicos = {
+                nombreCompleto: primerRegistro?.nombreCompleto,
+                cedula: primerRegistro?.cedula
+            };
+
             // Convertir a objetos
-            const alumniData = user.alumni.toObject();
             const userData = user.toObject();
             const profileData = user.profile?.toObject() || {};
 
             // Estructurar respuesta
             const response = {
-                ...alumniData,
+                ...datosBasicos,
                 user: {
                     id: userData.id,
                     username: userData.username,
                     profilePicture: userData.profilePicture,
                     lastLogin: userData.lastLogin
                 },
+                carrerasPregrado: user.pregrado?.map(p => ({
+                    carrera: p.carrera,
+                    fechaGrado: p.fechaGrado,
+                    numeroAsignado: p.numeroAsignado
+                })) || [],
+                programasPostgrado: user.postgrado?.map(p => ({
+                    programa: p.programa,
+                    fechaGrado: p.fechaGrado,
+                    numeroAsignado: p.numeroAsignado
+                })) || [],
                 profile: profileData
             };
 
@@ -214,6 +389,7 @@ export default class AlumniController {
             next(error);
         }
     }
+
 
     /**
      * @method updateProfile
@@ -273,7 +449,15 @@ export default class AlumniController {
                 }
             };
 
-            // Actualizar campos según lo recibido
+            // Actualizar datos personales
+            if (updateData.personalData) {
+                userProfile.personalData = {
+                    ...userProfile.personalData,
+                    ...updateData.personalData
+                };
+            }
+
+            // Actualizar datos de contacto
             if (updateData.contact) {
                 userProfile.contact = {
                     ...userProfile.contact,
@@ -281,6 +465,7 @@ export default class AlumniController {
                 };
             }
 
+            // Actualizar datos de redes sociales
             if (updateData.socialMedia) {
                 userProfile.socialMedia = {
                     ...userProfile.socialMedia,
@@ -288,6 +473,7 @@ export default class AlumniController {
                 };
             }
 
+            // Actualizar datos profesionales
             if (updateData.professional) {
                 userProfile.professional = {
                     ...userProfile.professional,
@@ -503,4 +689,480 @@ export default class AlumniController {
             next(error);
         }
     };
+
+
+    /**
+     * @method processCSVUpload
+     * @async
+     * @description Procesa un archivo CSV para cargar datos de egresados
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si no se proporciona un archivo
+     *  - 500 si hay error al procesar el archivo
+     */
+    processCSVUpload = async (req, res, next, modelConfig) => {
+        try {
+            const { file } = req;
+
+            if (!file) {
+                throw new AppError('No se proporcionó un archivo', 400, 'FILE_NOT_FOUND');
+            }
+
+            const stats = {
+                total: 0,
+                inserted: 0,
+                duplicates: 0,
+                validationErrors: 0,
+                dbErrors: 0,
+                errorDetails: []
+            };
+
+            // Procesar el archivo CSV
+            const stream = Readable.from(file.buffer.toString());
+            const rl = createInterface({
+                input: stream,
+                crlfDelay: Infinity
+            });
+
+            let batch = [];
+            const BATCH_SIZE = 500;
+            let firstLine = true;
+
+            for await (const line of rl) {
+                // Saltar encabezado
+                if (firstLine) {
+                    firstLine = false;
+                    continue;
+                }
+
+                stats.total++;
+
+                try {
+                    // Parsear y validar el registro según la configuración
+                    const record = this.parseCSVLine(line, modelConfig);
+                    const validationError = this.validateRecord(record, modelConfig);
+
+                    if (validationError) {
+                        // throw new AppError(validationError, 400, 'VALIDATION_ERROR');
+                        if (validationError.type === 'VALIDATION_ERROR') {
+                            stats.validationErrors++;
+                        } else {
+                            stats.dbErrors++;
+                        }
+
+                        stats.errorDetails.push({
+                            line: stats.total,
+                            error: validationError,
+                            code: 'VALIDATION_ERROR',
+                            record: line.substring(0, 100) + (line.length > 100 ? '...' : '')
+                        });
+                    }
+
+                    batch.push(record);
+
+                    // Procesar lote completo
+                    if (batch.length >= BATCH_SIZE) {
+                        const result = await this.processBatch(batch, modelConfig.Model);
+                        this.updateStats(stats, result, batch.length);
+                        batch = [];
+                    }
+                } catch (error) {
+                    throw new AppError(error.message, 400, 'VALIDATION_ERROR');
+                }
+            }
+
+            // Procesar último lote
+            if (batch.length > 0) {
+                const result = await this.processBatch(batch, modelConfig.Model);
+                this.updateStats(stats, result, batch.length);
+            }
+
+            res.json({
+                success: true,
+                ...stats,
+                totalErrors: stats.validationErrors + stats.dbErrors
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method uploadPregrado
+     * @async
+     * @description Procesa archivo CSV para pregrado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     */
+    uploadPregrado = async (req, res, next) => {
+        const modelConfig = {
+            Model: EgresadoPregrado,
+            typeField: 'carrera',
+            parseFn: this.parsePregradoLine,
+            validateFn: this.validatePregradoRecord
+        };
+        return this.processCSVUpload(req, res, next, modelConfig);
+    }
+
+    /**
+     * @method uploadPostgrado
+     * @async
+     * @description Procesa archivo CSV para postgrado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     */
+    uploadPostgrado = async (req, res, next) => {
+        const modelConfig = {
+            Model: EgresadoPostgrado,
+            typeField: 'programa',
+            parseFn: this.parsePostgradoLine,
+            validateFn: this.validatePostgradoRecord
+        };
+        return this.processCSVUpload(req, res, next, modelConfig);
+    }
+
+    /**
+    * @method parseCSVLine
+    * @description Parsea una línea del CSV según la configuración
+    * @param {string} line - Línea del CSV
+    * @param {Object} config - Configuración del modelo
+    * @returns {Object} Objeto con los campos parseados
+    */
+    parseCSVLine(line, config) {
+        const [nombreCompleto, cedula, typeField, actaGrado, fechaGrado, numeroAsignado, tomo, folio] =
+            line.split(';').map(field => field.trim());
+
+        return {
+            nombreCompleto,
+            cedula,
+            [config.typeField]: typeField,
+            actaGrado,
+            fechaGrado,
+            numeroAsignado,
+            tomo,
+            folio
+        };
+    }
+
+    /**
+     * @method validateRecord
+     * @description Valida un registro antes de insertarlo
+     * @param {Object} record - Registro a validar
+     * @param {Object} config - Configuración del modelo
+     * @returns {string|null} Mensaje de error o null si es válido
+     */
+    validateRecord(record, config) {
+        // Validar formato de cédula
+        if (!/^[VE]-\d+$/.test(record.cedula)) {
+            return `Formato de cédula inválido: ${record.cedula}. Debe ser V-12345678 o E-12345678`;
+        }
+
+        // Formato esperado: DD/MM/YYYY o MM/DD/YYYY
+        const parts = record.fechaGrado.split('/');
+        if (parts.length !== 3) return `Formato de fecha inválido: ${record.fechaGrado}`;
+
+        // Formato DD/MM/YYYY
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+
+        const date = new Date(year, month, day);
+        if (isNaN(date.getTime())) return `Fecha inválida: ${record.fechaGrado}`;
+
+        // Validar fecha
+        if (!/\d{1,2}\/\d{1,2}\/\d{4}/.test(record.fechaGrado)) {
+            return `Formato de fecha inválido: ${record.fechaGrado}. Debe ser dd/mm/yyyy`;
+        }
+
+        // Parsear fecha 
+        record.fechaGrado = this.parseDate(record.fechaGrado);
+
+        // Validar otros campos requeridos
+        const requiredFields = ['nombreCompleto', config.typeField, 'actaGrado', 'numeroAsignado', 'tomo', 'folio'];
+        for (const field of requiredFields) {
+            if (!record[field] || record[field].trim() === '') {
+                return `Campo requerido faltante: ${field}`;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @method processBatch
+     * @async
+     * @description Procesa un lote de registros
+     * @param {Array} batch - Lote de registros
+     * @param {Model} Model - Modelo Mongoose
+     * @returns {Promise<Object>} Resultado del procesamiento
+     */
+    async processBatch(batch, Model) {
+        try {
+            const uniqueRecords = [];
+            const duplicatesInBatch = [];
+
+            for (const record of batch) {
+                try {
+                    // Verificar si ya existe el registro académico
+                    const academicRecordExists = await Model.exists({
+                        cedula: record.cedula,
+                        [Model.modelName === 'EgresadoPregrado' ? 'carrera' : 'programa']:
+                            Model.modelName === 'EgresadoPregrado' ? record.carrera : record.programa,
+                        fechaGrado: record.fechaGrado
+                    });
+
+                    if (academicRecordExists) {
+                        duplicatesInBatch.push({
+                            record,
+                            error: 'Registro académico duplicado (misma cédula, misma carrera/programa y misma fecha de grado)'
+                        });
+                        continue;
+                    }
+
+                    // Buscar usuario existente por cédula
+                    const user = await User.findOne({
+                        cedula: record.cedula
+                    });
+
+                    // Si encontramos un usuario, relacionamos el registro
+                    if (user) {
+                        record.user = user._id;
+
+                        // Guardar el registro académico
+                        const savedRecord = await Model.create(record);
+
+                        // Actualizar el array correspondiente en el usuario
+                        if (Model.modelName === 'EgresadoPregrado') {
+                            await User.findByIdAndUpdate(user._id, {
+                                $addToSet: { pregrado: savedRecord._id }
+                            });
+                        } else {
+                            await User.findByIdAndUpdate(user._id, {
+                                $addToSet: { postgrado: savedRecord._id }
+                            });
+                        }
+
+                        uniqueRecords.push(savedRecord);
+                    } else {
+                        // Si no hay usuario, solo guardamos el registro académico
+                        uniqueRecords.push(record);
+                    }
+                } catch (error) {
+                    duplicatesInBatch.push({
+                        record,
+                        error: error.message
+                    });
+                }
+            }
+
+            // Insertar solo registros únicos que no se hayan guardado antes
+            const recordsToInsert = uniqueRecords.filter(r => !r._id);
+            let insertResult = { insertedCount: 0 };
+
+            if (recordsToInsert.length > 0) {
+                insertResult = await Model.insertMany(recordsToInsert, {
+                    ordered: false,
+                    rawResult: true
+                });
+            }
+
+            return {
+                inserted: insertResult.insertedCount + (uniqueRecords.length - recordsToInsert.length),
+                duplicates: duplicatesInBatch.length,
+                errors: duplicatesInBatch.concat(insertResult.writeErrors || [])
+            };
+        } catch (error) {
+            return this.processOneByOne(batch, Model);
+        }
+    }
+
+    /**
+     * @method updateStats
+     * @description Actualiza las estadísticas con los resultados del lote
+     * @param {Object} stats - Estadísticas actuales
+     * @param {Object} batchResult - Resultado del procesamiento del lote
+     * @param {number} batchSize - Tamaño del lote
+     */
+    updateStats(stats, batchResult, batchSize) {
+        stats.inserted += batchResult.inserted;
+        stats.duplicates += batchResult.duplicates;
+
+        // Diferenciar entre errores de validación y de base de datos
+        const dbErrors = batchResult.errors.filter(e => !e.error.includes('duplicado'));
+        stats.dbErrors += dbErrors.length;
+
+        if (batchResult.errors.length > 0) {
+            stats.errorDetails.push(...batchResult.errors.map(err => ({
+                line: `Lote ${stats.total - batchSize + 1}-${stats.total}`,
+                error: err.errmsg || err.error,
+                code: err.code || (err.error.includes('duplicado') ? 'DUPLICATE_RECORD' : 'DB_ERROR'),
+                record: err.record || JSON.stringify(err.op || {}).substring(0, 100) + '...'
+            })));
+        }
+    }
+
+    /**
+     * @method processOneByOne
+     * @async
+     * @description Procesa registros individualmente como fallback
+     * @param {Array} batch - Lote de registros
+     * @param {Model} Model - Modelo Mongoose
+     * @returns {Promise<Object>} Resultado del procesamiento
+     */
+    async processOneByOne(batch, Model) {
+        const result = {
+            inserted: 0,
+            duplicates: 0,
+            errors: []
+        };
+
+        for (const record of batch) {
+            try {
+                // Verificar si ya existe el registro académico
+                const academicRecordExists = await Model.exists({
+                    cedula: record.cedula,
+                    [Model.modelName === 'EgresadoPregrado' ? 'carrera' : 'programa']:
+                        Model.modelName === 'EgresadoPregrado' ? record.carrera : record.programa,
+                    fechaGrado: record.fechaGrado
+                });
+
+                if (academicRecordExists) {
+                    result.duplicates++;
+                    continue;
+                }
+
+                // Buscar usuario existente por cédula
+                const user = await User.findOne({
+                    cedula: record.cedula
+                });
+
+                // Si encontramos un usuario, relacionamos el registro
+                if (user) {
+                    console.log("usuario encontrado");
+                    record.user = user._id;
+                    const savedRecord = await Model.create(record);
+
+                    // Actualizar el array correspondiente en el usuario
+                    if (Model.modelName === 'EgresadoPregrado') {
+                        await User.findByIdAndUpdate(user._id, {
+                            $addToSet: { pregrado: savedRecord._id }
+                        });
+                    } else {
+                        await User.findByIdAndUpdate(user._id, {
+                            $addToSet: { postgrado: savedRecord._id }
+                        });
+                    }
+                } else {
+                    await Model.create(record);
+                }
+
+                result.inserted++;
+            } catch (error) {
+                if (error.code === 11000) {
+                    result.duplicates++;
+                } else {
+                    result.errors.push({
+                        error: error.message,
+                        record: JSON.stringify(record)
+                    });
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * @method parsePregradoLine
+     * @description Parsea una línea del CSV de pregrado
+     * @param {string} line - Línea del CSV
+     * @returns {Object} Objeto con los campos parseados
+     */
+    parsePregradoLine(line) {
+        const [nombreCompleto, cedula, carrera, actaGrado, fechaGrado, numeroAsignado, tomo, folio] =
+            line.split(';').map(field => field.trim());
+
+        if (!nombreCompleto || !cedula || !carrera || !actaGrado || !fechaGrado || !numeroAsignado || !tomo || !folio) {
+            throw new Error('Faltan campos obligatorios');
+        }
+
+        // Formatear cédula si no tiene el prefijo V/E
+        let formattedCedula = cedula;
+        if (!/^[VEve]-/.test(cedula)) {
+            formattedCedula = `V-${cedula}`;
+        }
+
+        return {
+            nombreCompleto,
+            cedula: formattedCedula,
+            carrera,
+            actaGrado,
+            fechaGrado: this.parseDate(fechaGrado),
+            numeroAsignado,
+            tomo,
+            folio
+        };
+    }
+
+    /**
+     * @method parsePostgradoLine
+     * @description Parsea una línea del CSV de postgrado
+     * @param {string} line - Línea del CSV
+     * @returns {Object} Objeto con los campos parseados
+     */
+    parsePostgradoLine(line) {
+        const [nombreCompleto, cedula, programa, actaGrado, fechaGrado, numeroAsignado, tomo, folio] =
+            line.split(';').map(field => field.trim());
+
+        if (!nombreCompleto || !cedula || !programa || !actaGrado || !fechaGrado || !numeroAsignado || !tomo || !folio) {
+            throw new Error('Faltan campos obligatorios');
+        }
+
+        // Formatear cédula si no tiene el prefijo V/E
+        let formattedCedula = cedula;
+        if (!/^[VEve]-/.test(cedula)) {
+            formattedCedula = `V-${cedula}`;
+        }
+
+        return {
+            nombreCompleto,
+            cedula: formattedCedula,
+            programa,
+            actaGrado,
+            fechaGrado: this.parseDate(fechaGrado),
+            numeroAsignado,
+            tomo,
+            folio
+        };
+    }
+
+    /**
+     * @method parseDate
+     * @description Convierte string de fecha a objeto Date
+     * @param {string} dateStr - String de fecha
+     * @returns {Date} Objeto Date
+     */
+    parseDate(dateStr) {
+        // Formato esperado: DD/MM/YYYY o MM/DD/YYYY
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) throw new Error(`Formato de fecha inválido: ${dateStr}`);
+
+        // Asumimos formato DD/MM/YYYY
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+
+        const date = new Date(year, month, day);
+        if (isNaN(date.getTime())) throw new Error(`Fecha inválida: ${dateStr}`);
+
+        return date;
+    }
 }

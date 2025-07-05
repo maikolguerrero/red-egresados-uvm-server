@@ -38,7 +38,7 @@ const baseEventSchema = {
     specialGuests: yup.array()
         .of(yup.string().trim().max(50, 'Máximo 50 caracteres por invitado')),
     capacity: yup.number()
-        .min(1, 'La capacidad mínima es 1')
+        .min(0, 'La capacidad mínima es 0')
         .integer()
         .nullable()
         .transform(value => value || null),

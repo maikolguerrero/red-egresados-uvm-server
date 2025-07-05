@@ -183,7 +183,7 @@ export default class EmailService {
                 </div>
                 
                 <div class="footer">
-                  <p>${landingPageContent.footerText}</p>
+                  <p>${landingPageContent?.footerText || (`© TODOS LOS DERECHOS RESERVADOS – RED DE EGRESADOS UNIVERSIDAD VALLE DEL MOMBOY | 1997 – ${new Date().getFullYear()}`)}</p>
                 </div>
               </div>
             </body>

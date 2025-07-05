@@ -5,14 +5,7 @@ export const alumniSearchSchema = yup.object().shape({
         .max(100, 'La búsqueda no puede exceder 100 caracteres')
         .nullable(),
     degree: yup.string()
-        .oneOf([
-            'Licenciatura en Administración de Empresas',
-            'Licenciatura en Contaduría Pública',
-            'Ingeniería de Computación',
-            'Ingeniería Industrial',
-            'Derecho',
-            'Ciencias Políticas y Administrativas'
-        ], 'Carrera no válida')
+        .max(100, 'La carrera no puede exceder 100 caracteres')
         .nullable(),
     graduationYear: yup.number()
         .integer('El año debe ser un número entero')
@@ -43,4 +36,10 @@ export const usernameParamSchema = yup.object().shape({
         .matches(/^[a-z0-9_]+$/, 'Solo letras minúsculas, números y guiones bajos')
         .required('El nombre de usuario es requerido')
         .transform(value => value.toLowerCase())
+});
+
+export const cedulaParamSchema = yup.object().shape({
+    cedula: yup.string()
+        .required('La cédula es requerida')
+        .matches(/^([VvEe]-)?\d{7,8}$/, 'Formato de cédula inválido')
 });

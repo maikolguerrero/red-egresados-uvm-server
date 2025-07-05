@@ -98,7 +98,7 @@ const EventSchema = new mongoose.Schema({
   },
   capacity: {
     type: Number,
-    min: [1, 'La capacidad debe ser al menos 1']
+    min: [0, 'La capacidad debe ser al menos 0']
   },
   certificate: {
     type: Boolean,

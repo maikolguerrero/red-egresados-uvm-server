@@ -3,7 +3,8 @@
  * @module controllers/auth.controller
  * @requires bcrypt
  * @requires jsonwebtoken
- * @requires ../models/Alumni
+ * @requires ../models/EgresadoPregrado
+ * @requires ../models/EgresadoPostgrado
  * @requires ../models/User
  * @requires ../models/UserProfile
  * @requires ../models/RefreshToken
@@ -13,7 +14,8 @@
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import Alumni from '../models/Alumni.js';
+import EgresadoPregrado from '../models/EgresadoPregrado.js';
+import EgresadoPostgrado from '../models/EgresadoPostgrado.js';
 import User from '../models/User.js';
 import UserProfile from '../models/UserProfile.js';
 import RefreshToken from '../models/RefreshToken.js';
@@ -110,52 +112,22 @@ export default class AuthController {
                 studentId: req.body.studentId,
                 ip: req.ip
             });
-            const { idNumber, studentId, firstName, lastName, birthDate, degree, graduationDate, email, username, password } = req.body;
+            const { cedula, nombreCompleto, username, email, password } = req.body;
 
-            // Verificar datos contra los registros precargados
-            const alumni = await Alumni.findOne({
-                idNumber,
-                studentId,
-                firstName: { $regex: new RegExp(`^${firstName}$`, 'i') },
-                lastName: { $regex: new RegExp(`^${lastName}$`, 'i') },
-                email: { $regex: new RegExp(`^${email}$`, 'i') },
-                degree,
-                graduationDate: {
-                    $gte: new Date(new Date(graduationDate).setHours(0, 0, 0, 0)),
-                    $lte: new Date(new Date(graduationDate).setHours(23, 59, 59, 999))
-                },
-                birthDate: {
-                    $gte: new Date(new Date(birthDate).setHours(0, 0, 0, 0)),
-                    $lte: new Date(new Date(birthDate).setHours(23, 59, 59, 999))
-                }
-            });
+            // Verificar en pregrado y postgrado
+            const [pregrado, postgrado] = await Promise.all([
+                EgresadoPregrado.findOne({
+                    cedula,
+                    nombreCompleto: { $regex: new RegExp(`^${nombreCompleto}$`, 'i') }
+                }),
+                EgresadoPostgrado.findOne({
+                    cedula,
+                    nombreCompleto: { $regex: new RegExp(`^${nombreCompleto}$`, 'i') }
+                })
+            ]);
 
-            if (!alumni) {
-                throw new AppError(
-                    'No se encontró coincidencia con nuestros registros de egresados',
-                    404,
-                    'ALUMNI_NOT_FOUND',
-                    {
-                        action: 'register_validation',
-                        idNumber: req.body.idNumber,
-                        studentId: req.body.studentId,
-                        ip: req.ip,
-                        context: 'security' // Importante para seguimiento
-                    }
-                );
-            }
-
-            if (alumni.isRegistered) {
-                throw new AppError(
-                    'Este egresado ya tiene una cuenta registrada',
-                    409,
-                    'ALUMNI_ALREADY_REGISTERED',
-                    {
-                        action: 'register_duplicate',
-                        alumniId: alumni._id,
-                        ip: req.ip
-                    }
-                );
+            if (!pregrado && !postgrado) {
+                throw new AppError('No se encontró coincidencia con nuestros registros', 404);
             }
 
             // Validar unicidad del username
@@ -183,7 +155,7 @@ export default class AuthController {
 
             // Crear usuario (sin activar)
             const user = await User.create({
-                alumni: alumni._id,
+                cedula,
                 username,
                 email,
                 password: hashedPassword,
@@ -191,8 +163,22 @@ export default class AuthController {
                 isVerified: false,
                 isActive: false,
                 verificationToken,
-                verificationTokenExpires
+                verificationTokenExpires,
+                // Asignar las relaciones
+                ...(pregrado && { pregrado: [pregrado._id] }),
+                ...(postgrado && { postgrado: [postgrado._id] })
             });
+
+            // Actualizar los registros de egresados con el usuario
+            if (pregrado) {
+                pregrado.user = user._id;
+                await pregrado.save();
+            }
+
+            if (postgrado) {
+                postgrado.user = user._id;
+                await postgrado.save();
+            }
 
             // Crear perfil del usuario
             const newProfile = await UserProfile.create({
@@ -202,16 +188,9 @@ export default class AuthController {
             // Actualizar el usuario con la referencia al perfil
             await User.findByIdAndUpdate(user._id, { profile: newProfile._id });
 
-            // Actualizar registro del egresado
-            alumni.isRegistered = true;
-            alumni.registrationDate = new Date();
-            alumni.user = user._id;
-            await alumni.save();
-
             // Éxito (logger solo para confirmación)
             req.logger.info('Egresado registrado', {
-                userId: user._id,
-                alumniId: alumni._id
+                userId: user._id
             });
 
             // Enviar email de verificación
@@ -736,6 +715,18 @@ export default class AuthController {
             const refreshTokenCookie = req.cookies?.refreshToken || req.body?.refreshToken || null;
 
             if (!refreshTokenCookie) {
+                // Limpiar cookies si no hay refresh token para evitar problemas
+                const isProduction = process.env.NODE_ENV === 'production';
+                const cookieOptions = {
+                    httpOnly: true,
+                    secure: isProduction,
+                    sameSite: 'lax',
+                    domain: isProduction ? process.env.DOMAIN : undefined,
+                    path: '/'
+                };
+                res.clearCookie('accessToken', cookieOptions);
+                res.clearCookie('refreshToken', cookieOptions);
+
                 throw new AppError('Refresh token requerido', 401, 'REFRESH_TOKEN_REQUIRED', {
                     action: 'login_failed',
                     context: 'security',
@@ -753,6 +744,18 @@ export default class AuthController {
             }).populate('user');
 
             if (!storedToken) {
+                // Limpiar cookies si el refresh token es inválido o expirado
+                const isProduction = process.env.NODE_ENV === 'production';
+                const cookieOptions = {
+                    httpOnly: true,
+                    secure: isProduction,
+                    sameSite: 'lax',
+                    domain: isProduction ? process.env.DOMAIN : undefined,
+                    path: '/'
+                };
+                res.clearCookie('accessToken', cookieOptions);
+                res.clearCookie('refreshToken', cookieOptions);
+
                 throw new AppError('Refresh token inválido o expirado', 401, 'INVALID_REFRESH_TOKEN', {
                     action: 'login_failed',
                     context: 'security',

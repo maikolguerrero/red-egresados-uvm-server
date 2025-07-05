@@ -1,9 +1,11 @@
 
 import express from 'express';
 import AlumniController from '../controllers/alumni.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { validate, validateQuery, validateParams } from '../middlewares/validate.middleware.js';
-import { alumniSearchSchema, usernameParamSchema } from '../schemas/alumni.schemas.js';
+import {
+    alumniSearchSchema, usernameParamSchema, cedulaParamSchema,
+} from '../schemas/alumni.schemas.js';
 import { profileUpdateSchema } from '../schemas/userProfile.schemas.js';
 
 /**
@@ -46,6 +48,71 @@ export default function alumniRoutes(fileService) {
 
     /**
      * @swagger
+     * /api/alumni/verify-alumni:
+     *   get:
+     *     summary: Verifica si una cédula corresponde a un egresado
+     *     description: Endpoint público para verificar si una persona es egresada
+     *     tags: [Egresados]
+     *     parameters:
+     *       - in: query
+     *         name: cedula
+     *         required: true
+     *         schema:
+     *           type: string
+     *           example: "V-12345678"
+     *         description: Cédula del egresado (formato V/E-12345678)
+     *     responses:
+     *       200:
+     *         description: Resultado de la verificación
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 esEgresado:
+     *                   type: boolean
+     *                   example: true
+     *                 datos:
+     *                   type: object
+     *                   properties:
+     *                     nombreCompleto:
+     *                       type: string
+     *                       example: "Juan Pérez"
+     *                     cedula:
+     *                       type: string
+     *                       example: "V-12345678"
+     *                     carrerasPregrado:
+     *                       type: array
+     *                       items:
+     *                         type: object
+     *                         properties:
+     *                           carrera:
+     *                             type: string
+     *                           fechaGrado:
+     *                             type: string
+     *                             format: date
+     *                     programasPostgrado:
+     *                       type: array
+     *                       items:
+     *                         type: object
+     *                         properties:
+     *                           programa:
+     *                             type: string
+     *                           fechaGrado:
+     *                             type: string
+     *                             format: date
+     *       400:
+     *         description: Cédula inválida
+     *       404:
+     *         description: No se encontró egresado con esa cédula
+     */
+    router.get('/verify-alumni/:cedula', validateParams(cedulaParamSchema), alumniController.checkAlumni);
+
+    /**
+     * @swagger
      * /api/alumni/search:
      *   get:
      *     summary: Buscar egresados
@@ -58,19 +125,17 @@ export default function alumniRoutes(fileService) {
      *         name: query
      *         schema:
      *           type: string
-     *         description: Texto para buscar en nombres, apellidos o email
+     *         description: Texto para buscar en nombre completo o email alternativo
      *       - in: query
-     *         name: degree
+     *         name: pregrado
      *         schema:
      *           type: string
-     *           enum:
-     *             - Licenciatura en Administración de Empresas
-     *             - Licenciatura en Contaduría Pública
-     *             - Ingeniería de Computación
-     *             - Ingeniería Industrial
-     *             - Derecho
-     *             - Ciencias Políticas y Administrativas
-     *         description: Filtrar por carrera
+     *         description: Filtrar por título de pregrado (ej. "Administración")
+     *       - in: query
+     *         name: postgrado
+     *         schema:
+     *           type: string
+     *         description: Filtrar por título de postgrado (ej. "Magister")
      *       - in: query
      *         name: graduationYear
      *         schema:
@@ -82,6 +147,11 @@ export default function alumniRoutes(fileService) {
      *         schema:
      *           type: string
      *         description: Filtrar por ubicación geográfica
+     *       - in: query
+     *         name: username
+     *         schema:
+     *           type: string
+     *         description: Filtrar por nombre de usuario
      *     responses:
      *       200:
      *         description: Lista de egresados que coinciden con los criterios
@@ -93,21 +163,61 @@ export default function alumniRoutes(fileService) {
      *                 success:
      *                   type: boolean
      *                   example: true
-     *                 count:
-     *                   type: integer
-     *                   example: 5
+     *                 pagination:
+     *                   type: object
+     *                   properties:
+     *                     total:
+     *                       type: integer
+     *                       example: 50
+     *                     page:
+     *                       type: integer
+     *                       example: 1
+     *                     pages:
+     *                       type: integer
+     *                       example: 5
+     *                     limit:
+     *                       type: integer
+     *                       example: 10
      *                 data:
      *                   type: array
      *                   items:
-     *                     $ref: '#/components/schemas/AlumniProfile'
-     *       401:
-     *         $ref: '#/components/responses/UnauthorizedError'
-     *       500:
-     *         description: Error del servidor
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/ErrorResponse'
+     *                     type: object
+     *                     properties:
+     *                       id:
+     *                         type: string
+     *                         format: mongo-id
+     *                       username:
+     *                         type: string
+     *                       profilePicture:
+     *                         type: string
+     *                         format: url
+     *                       lastLogin:
+     *                         type: string
+     *                         format: date-time
+     *                       nombreCompleto:
+     *                         type: string
+     *                       ubicacion:
+     *                         type: string
+     *                       carrerasPregrado:
+     *                         type: array
+     *                         items:
+     *                           type: object
+     *                           properties:
+     *                             carrera:
+     *                               type: string
+     *                             fechaGrado:
+     *                               type: string
+     *                               format: date
+     *                       programasPostgrado:
+     *                         type: array
+     *                         items:
+     *                           type: object
+     *                           properties:
+     *                             programa:
+     *                               type: string
+     *                             fechaGrado:
+     *                               type: string
+     *                               format: date
      */
     router.get('/search', authenticate, validateQuery(alumniSearchSchema), alumniController.searchAlumni);
 
@@ -304,6 +414,138 @@ export default function alumniRoutes(fileService) {
         authenticate,
         fileService.getValidationMiddleware('picture', { maxSize: 10, type: 'image' }),
         alumniController.updateProfilePicture
+    );
+
+    /**
+     * @swagger
+     * /api/alumni/pregrado:
+     *   post:
+     *     summary: Carga masiva de egresados de pregrado desde CSV
+     *     tags: [Egresados]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         multipart/form-data:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               file:
+     *                 type: string
+     *                 format: binary
+     *                 description: Archivo CSV con datos de egresados de pregrado
+     *     responses:
+     *       200:
+     *         description: Resultado de la carga masiva
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 total:
+     *                   type: integer
+     *                   description: Total de registros procesados
+     *                 inserted:
+     *                   type: integer
+     *                   description: Registros insertados correctamente
+     *                 duplicates:
+     *                   type: integer
+     *                   description: Registros duplicados (no insertados)
+     *                 errors:
+     *                   type: integer
+     *                   description: Registros con errores
+     *                 errorDetails:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       line:
+     *                         type: integer
+     *                       error:
+     *                         type: string
+     *                       record:
+     *                         type: string
+     *       400:
+     *         description: Error en el archivo o validación
+     *       401:
+     *         description: No autorizado
+     *       403:
+     *         description: No tiene permisos para esta acción
+     */
+    router.post('/pregrado',
+        authenticate,
+        authorize('admin'),
+        fileService.getValidationMiddleware('file', { maxSize: 10, type: 'text/csv' }),
+        alumniController.uploadPregrado
+    );
+
+    /**
+     * @swagger
+     * /api/alumni/postgrado:
+     *   post:
+     *     summary: Carga masiva de egresados de postgrado desde CSV
+     *     tags: [Egresados]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         multipart/form-data:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               file:
+     *                 type: string
+     *                 format: binary
+     *                 description: Archivo CSV con datos de egresados de postgrado
+     *     responses:
+     *       200:
+     *         description: Resultado de la carga masiva
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 total:
+     *                   type: integer
+     *                   description: Total de registros procesados
+     *                 inserted:
+     *                   type: integer
+     *                   description: Registros insertados correctamente
+     *                 duplicates:
+     *                   type: integer
+     *                   description: Registros duplicados (no insertados)
+     *                 errors:
+     *                   type: integer
+     *                   description: Registros con errores
+     *                 errorDetails:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       line:
+     *                         type: integer
+     *                       error:
+     *                         type: string
+     *                       record:
+     *                         type: string
+     *       400:
+     *         description: Error en el archivo o validación
+     *       401:
+     *         description: No autorizado
+     *       403:
+     *         description: No tiene permisos para esta acción
+     */
+    router.post('/postgrado',
+        authenticate,
+        authorize('admin'),
+        fileService.getValidationMiddleware('file', { maxSize: 10, type: 'text/csv' }),
+        alumniController.uploadPostgrado
     );
 
     return router;
