@@ -82,7 +82,6 @@ const UserSchema = new mongoose.Schema({
      */
     cedula: {
         type: String,
-        required: true,
         unique: true,
         match: [/^[VE]-\d+$/, 'Formato cédula inválido (Ej: V-12345678)']
     },

@@ -56,7 +56,7 @@ export const profileUpdateSchema = yup.object().shape({
   }).nullable(),
   contact: yup.object().shape({
     phone: yup.string()
-      .matches(/^\+?\d{7,15}$/, 'Número telefónico inválido')
+      .matches(/^\+?\d{7,15}$|$/, 'Número telefónico inválido')
       .nullable(),
     alternateEmail: yup.string()
       .email('Email alternativo inválido')

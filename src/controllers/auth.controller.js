@@ -1297,16 +1297,9 @@ export default class AuthController {
                 pendingEmail: { $exists: true, $ne: null }
             }).select('+emailVerificationToken +emailVerificationTokenExpires +pendingEmail');
 
-            req.logger.debug('Usuario encontrado', {
-                userId: user._id,
-                oldEmail: user.email,
-                newEmail: user.pendingEmail,
-                ip: req.ip
-            });
-
             if (!user) {
                 throw new AppError(
-                    'Token inválido o expirado',
+                    'Error al verificar el cambio de email',
                     400,
                     'INVALID_EMAIL_CHANGE_TOKEN',
                     {
@@ -1317,6 +1310,13 @@ export default class AuthController {
                     }
                 );
             }
+
+            req.logger.debug('Usuario encontrado', {
+                userId: user._id,
+                oldEmail: user.email,
+                newEmail: user.pendingEmail,
+                ip: req.ip
+            });
 
             // Actualizar el email y limpiar campos temporales
             const oldEmail = user.email;
