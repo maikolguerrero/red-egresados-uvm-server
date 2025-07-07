@@ -22,3 +22,11 @@ export const notificationQuerySchema = yup.object().shape({
     .oneOf(['like', 'mention', 'thread_comment', 'comment_reply', 'thread_activity', undefined])
     .optional()
 });
+
+// Esquema para notificaciones masivas a egresados
+export const bulkNotificationSchema = yup.object().shape({
+  message: yup.string()
+    .required('El mensaje es requerido')
+    .min(10, 'El mensaje debe tener al menos 10 caracteres')
+    .max(500, 'El mensaje no puede exceder los 500 caracteres')
+});

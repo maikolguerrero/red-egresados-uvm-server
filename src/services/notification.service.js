@@ -493,8 +493,10 @@ export default class NotificationService {
         }
     }
 
-
-    // En tu controlador de notificaciones (backend)
+    /**
+     * @method markAsRead
+     * @description Marca una notificación como leída
+     */
     async markAsRead(notificationId, userId) {
         const notification = await Notification.findOneAndUpdate(
             { _id: notificationId, user: userId, read: false },
@@ -512,6 +514,10 @@ export default class NotificationService {
         return notification;
     }
 
+    /**
+     * @method deleteNotification
+     * @description Elimina una notificación
+     */
     async deleteNotification(notificationId, userId) {
         const notification = await Notification.findOneAndDelete({
             _id: notificationId,
@@ -530,5 +536,53 @@ export default class NotificationService {
             this.io.to(`user_${userId}`).emit('notification_count', unreadCount);
         }
         return notification;
+    }
+
+    /**
+     * @method sendBulkNotificationToGraduates
+     * @description Envía una notificación a todos los usuarios egresados
+     */ 
+    async sendBulkNotificationToGraduates({ message, fromAdminId }) {
+        try {
+            this.logger.info('Enviando notificación masiva a egresados', { message, fromAdminId });
+
+            // Obtener todos los usuarios egresados
+            const graduates = await User.find({
+                role: 'egresado',
+                isActive: true
+            }).select('_id');
+
+            // Crear notificaciones para cada egresado
+            const notifications = graduates.map(graduate =>
+                this.createNotification({
+                    userId: graduate._id,
+                    type: 'system',
+                    data: {
+                        message,
+                        isBulk: true
+                    },
+                    fromUser: fromAdminId
+                })
+            );
+
+            await Promise.all(notifications);
+
+            this.logger.info('Notificaciones masivas enviadas con éxito', {
+                totalSent: graduates.length
+            });
+
+            return {
+                success: true,
+                message: `Notificación enviada a ${graduates.length} egresados`,
+                totalSent: graduates.length
+            };
+        } catch (error) {
+            this.logger.error('Error al enviar notificaciones masivas:', {
+                error: error.message,
+                stack: !isProduction ? error.stack : undefined,
+                action: 'sendBulkNotificationToGraduates'
+            });
+            throw error;
+        }
     }
 }

@@ -105,4 +105,26 @@ export default class NotificationController {
       next(error);
     }
   }
+
+  /**
+   * @method sendBulkNotificationToGraduates
+   * @description Envía una notificación a todos los egresados (solo admin)
+   */
+  sendBulkNotificationToGraduates = async (req, res, next) => {
+    try {
+      const { message } = req.body;
+
+      const result = await this.notificationService.sendBulkNotificationToGraduates({
+        message,
+        fromAdminId: req.user.id
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
