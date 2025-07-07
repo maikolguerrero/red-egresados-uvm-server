@@ -78,7 +78,6 @@ const EventSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    required: [true, 'La ubicación es requerida'],
     trim: true
   },
   virtualLink: {

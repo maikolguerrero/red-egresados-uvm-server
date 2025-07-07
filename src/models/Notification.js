@@ -19,7 +19,6 @@ const NotificationSchema = new mongoose.Schema({
             'event_reminder',
             'project_join_request',
             'project_request_update',
-            'report',
             'new_report',
             'report_resolved',
             'user_warning',

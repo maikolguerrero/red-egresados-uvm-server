@@ -32,6 +32,27 @@ export default function landingContentRoutes(fileService, logger) {
 
     /**
      * @swagger
+     * /api/content/landing/footer:
+     *   get:
+     *     summary: Obtener el contenido del footer
+     *     tags: [Contenido de la Landing Page]
+     *     responses:
+     *       200:
+     *         description: Contenido obtenido exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 data:
+     *                   $ref: '#/components/schemas/LandingPageContent'
+     */
+    router.get('/footer', contentController.getContentFooter);
+
+    /**
+     * @swagger
      * /api/content/landing:
      *   patch:
      *     summary: Actualizar el contenido del sitio (solo admin)

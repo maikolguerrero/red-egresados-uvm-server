@@ -26,8 +26,10 @@ const baseEventSchema = {
                 : schema;
         }),
     location: yup.string()
-        .required('La ubicación es requerida')
-        .trim(),
+        // .required('La ubicación es requerida')
+        .trim()
+        .nullable()
+        .transform(value => value || null),
     virtualLink: yup.string()
         .url('Debe ser una URL válida')
         .nullable()
