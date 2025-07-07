@@ -1009,6 +1009,10 @@ export default class ForumController {
                 throw new AppError('No autorizado para eliminar este comentario', 403, 'FORBIDDEN');
             }
 
+            // Eliminar todas las respuestas asociadas a este comentario
+            const replies = await ForumComment.find({ parentComment: commentId });
+            const repliesDeletion = await ForumComment.deleteMany({ parentComment: commentId });
+
             // Eliminar media asociado (si existe)
             let mediaDeletion = { success: true };
             if (comment.media) {
@@ -1025,6 +1029,7 @@ export default class ForumController {
                 commentId,
                 userId,
                 threadId: comment.thread,
+                repliesDeleted: replies.length,
                 mediaDeleted: !!comment.media,
                 mediaDeleteSuccess: mediaDeletion.success
             });
@@ -1034,6 +1039,7 @@ export default class ForumController {
                 message: 'Comentario eliminado exitosamente',
                 data: {
                     commentId,
+                    repliesDeleted: replies.length,
                     mediaDeleted: !!comment.media
                 },
                 ...(!mediaDeletion.success && {
@@ -1239,7 +1245,15 @@ export default class ForumController {
 
                 if (action === 'deleted') {
                     if (report.comment) {
-                        await ForumComment.findByIdAndDelete(report.comment._id);
+                        // Eliminar el comentario principal y todas sus respuestas
+                        const commentId = report.comment._id;
+
+                        // Primero eliminamos todas las respuestas
+                        const repliesDeletion = await ForumComment.deleteMany({ parentComment: commentId });
+
+                        // Luego eliminamos el comentario principal
+                        await ForumComment.findByIdAndDelete(commentId);
+
                         contentDeleted = true;
                     } else if (report.thread) {
                         await ForumThread.findByIdAndDelete(report.thread._id);
