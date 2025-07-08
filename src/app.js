@@ -26,6 +26,7 @@
  * @requires ./routes/chat.routes
  * @requires ./routes/landingContent.routes
  * @requires ./routes/landingHome.routes
+ * @requires ./routes/stats.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
  * @requires ./config/swagger
@@ -73,6 +74,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import landingContentRoutes from './routes/landingContent.routes.js';
 import homeContentRoutes from './routes/landingHome.routes.js';
+import statsRoutes from './routes/stats.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
@@ -342,6 +344,13 @@ app.use('/api/content/landing', apiLimiter, landingContentRoutes(fileService, lo
  * @see {@link ./routes/content.routes.js}
  */
 app.use('/api/content/home', apiLimiter, homeContentRoutes(fileService, logger));
+
+/**
+ * @route /api/stats
+ * @description Rutas de estadísticas con limitador de tasa específico
+ * @see {@link ./routes/stats.routes.js}
+ */
+app.use('/api/stats', apiLimiter, statsRoutes(logger));
 
 // Ruta para recibir desconexiones via sendBeacon
 app.post('/api/socket/disconnect', (req, res) => {
