@@ -111,6 +111,74 @@ export default class ContentController {
     }
 
     /**
+    * @method getAcademicRequests
+    * @async
+    * @description Obtiene todo el contenido de las solicitudes académicas
+    * @param {Object} req - Objeto de solicitud
+    * @param {Object} res - Objeto de respuesta
+    * @param {Function} next - Función para manejar errores
+    * @returns {Promise<Object>} Resultado de la operación
+    * @returns {boolean} success - Indica si el envío fue exitoso
+    * @returns {Object} [data] - Datos del contenido (si fue exitoso)
+    * @returns {string} [error] - Mensaje de error (si falló)
+    */
+    getAcademicRequests = async (req, res, next) => {
+        try {
+            const content = await this.ModelContent.findOne().sort({ createdAt: -1 });
+            if (!content) {
+                return res.json({ success: true, data: null });
+            }
+            res.json({ success: true, data: content.academicRequests });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+    * @method updateAcademicRequests
+    * @async
+    * @description Actualiza el contenido de las solicitudes académicas
+    * @param {Object} req - Objeto de solicitud
+    * @param {Object} res - Objeto de respuesta
+    * @param {Function} next - Función para manejar errores
+    * @returns {Promise<Object>} Resultado de la operación
+    * @returns {boolean} success - Indica si el envío fue exitoso
+    * @returns {Object} [data] - Datos del contenido (si fue exitoso)
+    * @returns {string} [error] - Mensaje de error (si falló)
+    */
+    updateAcademicRequests = async (req, res, next) => {
+        try {
+            const academicRequests = req.body.academicRequests;
+            const userId = req.user.id;
+
+            // Buscar el documento más reciente
+            let content = await this.ModelContent.findOne().sort({ createdAt: -1 });
+
+            if (!content) {
+                // Si no existe, crear uno nuevo
+                content = new this.ModelContent({
+                    academicRequests,
+                    lastUpdatedBy: userId
+                });
+            } else {
+                // Actualizar campos
+                content.academicRequests = academicRequests;
+                content.lastUpdatedBy = userId;
+            }
+
+            await content.save();
+
+            res.json({
+                success: true,
+                message: 'Contenido actualizado correctamente',
+                data: content.academicRequests
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * @method updateContent
      * @async
      * @description Actualiza el contenido del sitio

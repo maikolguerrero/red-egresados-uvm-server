@@ -40,3 +40,11 @@ export const contentUpdateSchema = yup.object().shape({
         })
     ).optional()
 });
+
+// Esquema para actualización de solicitudes académicas
+export const academicRequestsUpdateSchema = yup.object().shape({
+    academicRequests: yup.object().shape({
+        text: yup.string().max(500).optional(),
+        email: yup.string().email().required()
+    }).optional()
+});

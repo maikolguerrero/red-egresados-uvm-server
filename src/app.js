@@ -26,6 +26,7 @@
  * @requires ./routes/chat.routes
  * @requires ./routes/landingContent.routes
  * @requires ./routes/landingHome.routes
+ * @requires ./routes/academicRequests.routes
  * @requires ./routes/stats.routes
  * @requires ./config/logger
  * @requires ./utils/httpLogger
@@ -74,6 +75,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import landingContentRoutes from './routes/landingContent.routes.js';
 import homeContentRoutes from './routes/landingHome.routes.js';
+import academicRequestsRoutes from './routes/academicRequests.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import logger from './config/logger.js';
 import httpLogger from './utils/httpLogger.js';
@@ -344,6 +346,13 @@ app.use('/api/content/landing', apiLimiter, landingContentRoutes(fileService, lo
  * @see {@link ./routes/content.routes.js}
  */
 app.use('/api/content/home', apiLimiter, homeContentRoutes(fileService, logger));
+
+/**
+ * @route /api/content/academic-requests
+ * @description Rutas de contenido de las solicitudes académicas con limitador de tasa específico
+ * @see {@link ./routes/academicRequests.routes.js}
+ */
+app.use('/api/content/academic-requests', apiLimiter, academicRequestsRoutes(fileService, logger));
 
 /**
  * @route /api/stats
