@@ -232,7 +232,7 @@ export default class ForumController {
             }
 
             // Verificar permisos (solo autor o admin puede eliminar)
-            if (thread.author.toString() !== userId && req.user.role !== 'admin') {
+            if (thread.author.toString() !== userId && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
                 throw new AppError('No autorizado para eliminar esta imagen', 403, 'FORBIDDEN');
             }
 
@@ -810,7 +810,7 @@ export default class ForumController {
             }
 
             // 2. Verificar permisos (autor o admin)
-            if (!thread.author.equals(userId) && role !== 'admin') {
+            if (!thread.author.equals(userId) && role !== 'admin' && role !== 'superadmin') {
                 throw new AppError('No autorizado para eliminar este hilo', 403, 'FORBIDDEN');
             }
 
@@ -856,7 +856,7 @@ export default class ForumController {
                 action: 'thread_delete_complete',
                 threadId,
                 userId,
-                deletedBy: role === 'admin' ? 'admin' : 'author',
+                deletedBy: role === 'superadmin' || role === 'admin' ? 'admin' : 'author',
                 stats: deletionStats
             });
 
@@ -1005,7 +1005,7 @@ export default class ForumController {
             }
 
             // Verificar permisos (autor o admin)
-            if (!comment.author.equals(userId) && role !== 'admin') {
+            if (!comment.author.equals(userId) && role !== 'admin' && role !== 'superadmin') {
                 throw new AppError('No autorizado para eliminar este comentario', 403, 'FORBIDDEN');
             }
 

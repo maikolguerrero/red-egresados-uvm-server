@@ -677,7 +677,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      */
     router.get('/reports',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateQuery(reportsQuerySchema),
         forumController.getReports
     );
@@ -709,7 +709,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      */
     router.get('/reports/:reportId',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(reportIdSchema),
         forumController.getReportById
     );
@@ -753,7 +753,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      */
     router.patch('/reports/:reportId/resolve',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(reportIdSchema),
         validate(resolveReportSchema),
         forumController.resolveReport
@@ -799,7 +799,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      */
     router.delete('/reports/:reportId',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(reportIdSchema),
         forumController.deleteReport
     );
@@ -837,7 +837,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      */
     router.delete('/reports/cleanup',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         forumController.deleteNonPendingReports
     );
 

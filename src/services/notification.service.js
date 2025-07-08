@@ -280,7 +280,9 @@ export default class NotificationService {
      */
     async notifyAdminsAboutReport(report, reporterUsername, thread, comment) {
         // Obtener todos los admins
-        const admins = await User.find({ role: 'admin' }).select('_id');
+        const admins = await User.find({
+            role: { $in: ['superadmin', 'admin'] }
+        }).select('_id');
 
         // Notificar a cada admin
         await Promise.all(admins.map(async admin => {
@@ -541,7 +543,7 @@ export default class NotificationService {
     /**
      * @method sendBulkNotificationToGraduates
      * @description Envía una notificación a todos los usuarios egresados
-     */ 
+     */
     async sendBulkNotificationToGraduates({ message, fromAdminId }) {
         try {
             this.logger.info('Enviando notificación masiva a egresados', { message, fromAdminId });

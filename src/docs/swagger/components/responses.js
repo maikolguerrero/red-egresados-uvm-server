@@ -98,7 +98,7 @@
  *                 error:
  *                   code: "AUTH_403"
  *                   message: "Acceso restringido a administradores"
- *                   details: ["Requiere rol 'admin'"]
+ *                   details: ["Requiere rol 'admin' o 'superadmin'"]
  *                   timestamp: "2024-05-03T12:05:45Z"
  *
  *     ConflictError:

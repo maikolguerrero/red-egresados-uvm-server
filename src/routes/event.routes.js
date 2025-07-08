@@ -35,7 +35,11 @@ export default function eventRoutes(fileService) {
      *       500:
      *         $ref: '#/components/responses/ServerError'
      */
-    router.post('/', authenticate, authorize('admin'), validate(eventCreateSchema), eventController.createEvent);
+    router.post('/',
+        authenticate,
+        authorize('admin', 'superadmin'),
+        validate(eventCreateSchema),
+        eventController.createEvent);
 
     /**
      * @swagger
@@ -138,7 +142,12 @@ export default function eventRoutes(fileService) {
      *       500:
      *         $ref: '#/components/responses/ServerError'
      */
-    router.patch('/:id', authenticate, authorize('admin'), validateParams(eventIdSchema), validate(eventUpdateSchema), eventController.updateEvent);
+    router.patch('/:id',
+        authenticate,
+        authorize('admin', 'superadmin'),
+        validateParams(eventIdSchema),
+        validate(eventUpdateSchema),
+        eventController.updateEvent);
 
     /**
      * @swagger
@@ -163,7 +172,11 @@ export default function eventRoutes(fileService) {
      *       500:
      *         $ref: '#/components/responses/ServerError'
      */
-    router.delete('/:id', authenticate, authorize('admin'), validateParams(eventIdSchema), eventController.deleteEvent);
+    router.delete('/:id',
+        authenticate,
+        authorize('admin', 'superadmin'),
+        validateParams(eventIdSchema),
+        eventController.deleteEvent);
 
     /**
      * @swagger
@@ -205,7 +218,7 @@ export default function eventRoutes(fileService) {
     router.post(
         '/:id/media/images',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(eventIdSchema),
         fileService.getValidationMiddleware('image', { maxSize: 10 }),
         eventController.addEventImage
@@ -251,7 +264,7 @@ export default function eventRoutes(fileService) {
     router.post(
         '/:id/media/videos',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(eventIdSchema),
         fileService.getValidationMiddleware('video', { maxSize: 50 }),
         eventController.addEventVideo
@@ -291,7 +304,7 @@ export default function eventRoutes(fileService) {
      */
     router.delete('/:id/media/images/:imageId',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(eventIdSchema),
         eventController.removeEventImage
     );
@@ -330,7 +343,7 @@ export default function eventRoutes(fileService) {
       */
     router.delete('/:id/media/videos/:videoId',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validateParams(eventIdSchema),
         eventController.removeEventVideo
     );

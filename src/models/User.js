@@ -35,7 +35,7 @@ import mongoose from 'mongoose';
  * @property {Date} lastLogin - Fecha del último acceso
  * @property {Array<mongoose.Types.ObjectId>} [pregrado] - Referencia a Egresados Pregrado (solo role=egresado)
  * @property {Array<mongoose.Types.ObjectId>} [postgrado] - Referencia a Egresados Postgrado (solo role=egresado)
- * @property {string} [fullName] - Nombre completo (solo role=admin)
+ * @property {string} [fullName] - Nombre completo (solo role= admin o superadmin)
  * @property {Date} createdAt - Fecha de creación (auto)
  * @property {Date} updatedAt - Fecha de actualización (auto)
  */
@@ -79,19 +79,22 @@ const UserSchema = new mongoose.Schema({
 
     /**
      * Cédula
+     * @description Identificador único para egresados (V/E-12345678). 
+     * Null para administradores. Único entre valores no nulos.
      */
     cedula: {
         type: String,
         unique: true,
+        sparse: true,
         match: [/^[VE]-\d+$/, 'Formato cédula inválido (Ej: V-12345678)']
     },
 
     /**
-     * Datos para administradores (solo role=admin)
+     * Datos para administradores (solo role=admin o superadmin)
      */
     fullName: {
         type: String,
-        required: function () { return this.role === 'admin'; },
+        required: function () { return this.role === 'admin' || this.role === 'superadmin'; },
         trim: true
     },
 
@@ -135,7 +138,7 @@ const UserSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['egresado', 'admin'],
+        enum: ['egresado', 'admin', 'superadmin'],
         required: true
     },
     profilePicture: {

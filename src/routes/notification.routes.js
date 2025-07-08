@@ -246,7 +246,7 @@ export default function notificationRoutes(notificationService) {
     router.post(
         '/bulk/graduates',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validate(bulkNotificationSchema),
         controller.sendBulkNotificationToGraduates
     );

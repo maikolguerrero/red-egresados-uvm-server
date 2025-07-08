@@ -61,7 +61,7 @@ export default function homeContentRoutes(fileService, logger) {
      */
     router.patch('/',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         validate(contentUpdateSchema),
         contentController.updateContent
     );
@@ -100,7 +100,7 @@ export default function homeContentRoutes(fileService, logger) {
     router.post(
         '/carousel/media',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         fileService.getValidationMiddleware('file', { maxSize: 50 }),
         contentController.uploadCarouselMedia
     );
@@ -154,7 +154,7 @@ export default function homeContentRoutes(fileService, logger) {
     router.post(
         '/subsections/:sectionIndex/:subsectionIndex/image',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         fileService.getValidationMiddleware('file', { maxSize: 10, type: 'image' }),
         contentController.uploadSubsectionImage
     );
@@ -197,7 +197,7 @@ export default function homeContentRoutes(fileService, logger) {
     router.delete(
         '/carousel/:index',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         contentController.deleteCarouselItem
     );
 
@@ -247,7 +247,7 @@ export default function homeContentRoutes(fileService, logger) {
     router.delete(
         '/subsections/:sectionIndex/:subsectionIndex/image',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         contentController.deleteSubsectionImage
     );
 

@@ -203,14 +203,14 @@ async function createFirstAdmin() {
             username: process.env.FIRST_ADMIN_USERNAME,
             email: process.env.FIRST_ADMIN_EMAIL,
             password: await getHashedPassword(),
-            role: 'admin',
+            role: 'superadmin',
             isVerified: true, // El admin no necesita verificación
             isActive: true // El admin está activo
         };
 
-        // Verificar si ya existe un admin
+        // Verificar si ya existe un admin (superadmin)
         scriptLogger.debug('Buscando administradores existentes...');
-        const existingAdmin = await User.findOne({ role: 'admin' });
+        const existingAdmin = await User.findOne({ role: 'superadmin' });
         if (existingAdmin) {
             scriptLogger.warn('Ya existe un administrador en el sistema', {
                 existingAdminEmail: existingAdmin.email,

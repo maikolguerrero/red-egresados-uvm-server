@@ -130,9 +130,25 @@ export default class AuthController {
                 throw new AppError('No se encontró coincidencia con nuestros registros', 404);
             }
 
+            // Validar unicidad del cédula
+            const existingUserCedula = await User.findOne({ cedula });
+            if (existingUserCedula) {
+                throw new AppError(
+                    'El usuario ya está registrado',
+                    409,
+                    'CEDULA_TAKEN',
+                    {
+                        action: 'register_cedula_conflict',
+                        cedula,
+                        ip: req.ip,
+                        context: 'validation'
+                    }
+                );
+            }
+
             // Validar unicidad del username
-            const existingUser = await User.findOne({ username });
-            if (existingUser) {
+            const existingUserUsername = await User.findOne({ username });
+            if (existingUserUsername) {
                 throw new AppError(
                     'El nombre de usuario ya está registrado',
                     409,
@@ -413,7 +429,7 @@ export default class AuthController {
     /**
      * @method
      * @async
-     * @description Registra un nuevo administrador (requiere rol admin)
+     * @description Registra un nuevo administrador (requiere rol superadmin)
      * @param {Object} req - Objeto de petición Express
      * @param {Object} res - Objeto de respuesta Express
      * @param {Function} next - Función para pasar al siguiente middleware
@@ -431,22 +447,7 @@ export default class AuthController {
                 requestedBy: req.user?._id,
                 ip: req.ip
             });
-
-            // Solo administradores pueden crear otros administradores
-            if (req.user?.role !== 'admin') {
-                throw new AppError(
-                    'No autorizado para crear administradores',
-                    403,
-                    'ADMIN_CREATION_UNAUTHORIZED',
-                    {
-                        action: 'admin_registration',
-                        context: 'security',
-                        attemptingUser: req.user?._id,
-                        ip: req.ip
-                    }
-                );
-            }
-
+            
             // Verificar unicidad
             const existingUser = await User.findOne({ $or: [{ username }, { email }] });
             if (existingUser) {

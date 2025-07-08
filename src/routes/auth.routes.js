@@ -387,7 +387,7 @@ export default function authRoutes(emailService) {
      *     description: |
      *       Permite a administradores existentes registrar nuevos administradores.
      *       **Requisitos**:
-     *       - Requiere autenticación con rol 'admin'
+     *       - Requiere autenticación con rol 'superadmin'
      *       - Todos los campos son obligatorios
      *       - El email debe ser institucional
      *     tags: [Autenticación]
@@ -427,7 +427,7 @@ export default function authRoutes(emailService) {
      *                       type: string
      *                     role:
      *                       type: string
-     *                       enum: [admin]
+     *                       enum: [superadmin]
      *       401:
      *         $ref: '#/components/responses/UnauthorizedError'
      *       403:
@@ -442,7 +442,7 @@ export default function authRoutes(emailService) {
      *                   success: false
      *                   error:
      *                     code: "AUTH_403"
-     *                     message: "Requiere rol de administrador"
+     *                     message: "Requiere rol de superadministrador"
      *       409:
      *         description: Conflicto de datos
      *         content:
@@ -457,7 +457,11 @@ export default function authRoutes(emailService) {
      *                     code: "ADMIN_409"
      *                     message: "El administrador ya existe"
      */
-    router.post('/register/admin', authenticate, authorize('admin'), validate(adminRegisterSchema), authController.registerAdmin);
+    router.post('/register/admin',
+        authenticate,
+        authorize('superadmin'),
+        validate(adminRegisterSchema),
+        authController.registerAdmin);
 
     /**
      * @swagger

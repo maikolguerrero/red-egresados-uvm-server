@@ -315,7 +315,7 @@ export default class ProjectController {
             }
 
             // 2. Verificar permisos (autor o admin)
-            if (!project.owner.equals(userId) && role !== 'admin') {
+            if (!project.owner.equals(userId) && role !== 'admin' && role !== 'superadmin') {
                 throw new AppError('No autorizado para eliminar este proyecto', 403, 'FORBIDDEN');
             }
 

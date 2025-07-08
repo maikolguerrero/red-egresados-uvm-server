@@ -477,7 +477,7 @@ export default function alumniRoutes(fileService) {
      */
     router.post('/pregrado',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         fileService.getValidationMiddleware('file', { maxSize: 10, type: 'text/csv' }),
         alumniController.uploadPregrado
     );
@@ -543,7 +543,7 @@ export default function alumniRoutes(fileService) {
      */
     router.post('/postgrado',
         authenticate,
-        authorize('admin'),
+        authorize('admin', 'superadmin'),
         fileService.getValidationMiddleware('file', { maxSize: 10, type: 'text/csv' }),
         alumniController.uploadPostgrado
     );

@@ -259,7 +259,7 @@ export default class EventController {
             }
 
             // Solo el organizador o un admin puede actualizar
-            if (event.createdBy.toString() !== userId && req.user.role !== 'admin') {
+            if (event.createdBy.toString() !== userId && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
                 throw new AppError('No autorizado para actualizar este evento', 403, 'FORBIDDEN');
             }
 
@@ -338,7 +338,7 @@ export default class EventController {
                 action: 'event_delete',
                 eventId: id,
                 userId,
-                deletedBy: role === 'admin' ? 'admin' : 'creator',
+                deletedBy: role === 'superadmin' || role === 'admin' ? 'admin' : 'creator',
                 stats: deletionStats
             });
 
