@@ -1,7 +1,7 @@
 import express from 'express';
 import AuthController from '../controllers/auth.controller.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
-import { validate, validateQuery } from '../middlewares/validate.middleware.js';
+import { validate, validateQuery, validateParams } from '../middlewares/validate.middleware.js';
 import {
     loginSchema,
     alumniRegistrationSchema,
@@ -10,7 +10,9 @@ import {
     resetPasswordSchema,
     emailVerificationSchema,
     resendVerificationSchema,
-    changeEmailSchema
+    changeEmailSchema,
+    usernameParamSchema,
+    adminListSchema
 } from '../schemas/auth.schemas.js';
 
 /**
@@ -461,7 +463,193 @@ export default function authRoutes(emailService) {
         authenticate,
         authorize('superadmin'),
         validate(adminRegisterSchema),
-        authController.registerAdmin);
+        authController.registerAdmin
+    );
+
+    /**
+     * @swagger
+     * /api/auth/admins:
+     *   get:
+     *     summary: Obtener lista de administradores
+     *     description: |
+     *       Permite obtener la lista de administradores con paginación.
+     *       **Filtros disponibles**:
+     *       - Por nombre completo
+     *       - Por username
+     *       - Por email
+     *       - Por estado (activo/inactivo)
+     *     tags: [Autenticación]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: query
+     *         name: search
+     *         schema:
+     *           type: string
+     *         description: Texto para buscar en nombre completo, username o email
+     *       - in: query
+     *         name: isActive
+     *         schema:
+     *           type: boolean
+     *         description: Filtrar por estado activo/inactivo
+     *       - in: query
+     *         name: page
+     *         schema:
+     *           type: integer
+     *           minimum: 1
+     *           default: 1
+     *         description: Número de página
+     *       - in: query
+     *         name: limit
+     *         schema:
+     *           type: integer
+     *           minimum: 1
+     *           maximum: 100
+     *           default: 10
+     *         description: Límite de resultados por página
+     *       - in: query
+     *         name: sort
+     *         schema:
+     *           type: string
+     *           enum: [username, fullName, email, lastLogin, createdAt]
+     *           default: username
+     *         description: Campo por el cual ordenar
+     *       - in: query
+     *         name: order
+     *         schema:
+     *           type: string
+     *           enum: [asc, desc]
+     *           default: asc
+     *         description: Orden ascendente (asc) o descendente (desc)
+     *     responses:
+     *       200:
+     *         description: Lista de administradores paginada
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 pagination:
+     *                   type: object
+     *                   properties:
+     *                     total:
+     *                       type: integer
+     *                       example: 15
+     *                     page:
+     *                       type: integer
+     *                       example: 1
+     *                     pages:
+     *                       type: integer
+     *                       example: 2
+     *                     limit:
+     *                       type: integer
+     *                       example: 10
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       id:
+     *                         type: string
+     *                         format: mongo-id
+     *                       username:
+     *                         type: string
+     *                       email:
+     *                         type: string
+     *                         format: email
+     *                       fullName:
+     *                         type: string
+     *                       role:
+     *                         type: string
+     *                         enum: [admin, superadmin]
+     *                       profilePicture:
+     *                         type: object
+     *                         properties:
+     *                           url:
+     *                             type: string
+     *                             format: url
+     *                       isActive:
+     *                         type: boolean
+     *                       lastLogin:
+     *                         type: string
+     *                         format: date-time
+     *                       createdAt:
+     *                         type: string
+     *                         format: date-time
+     */
+    router.get('/admins',
+        authenticate,
+        authorize('superadmin'),
+        validateQuery(adminListSchema),
+        authController.getAdmins
+    );
+
+    /**
+     * @swagger
+     * /api/auth/admin/{username}:
+     *   delete:
+     *     summary: Eliminar un administrador por username
+     *     description: |
+     *       Permite a superadministradores eliminar cuentas de administradores usando el username.
+     *       **Restricciones**:
+     *       - Solo superadmins pueden ejecutar esta acción
+     *       - No se puede eliminar a sí mismo
+     *       - No se pueden eliminar superadmins
+     *     tags: [Autenticación]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: username
+     *         required: true
+     *         schema:
+     *           type: string
+     *           minLength: 4
+     *           maxLength: 20
+     *           pattern: '^[a-z0-9_]+$'
+     *         description: Username del administrador a eliminar
+     *     responses:
+     *       200:
+     *         description: Administrador eliminado exitosamente
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Administrador eliminado correctamente"
+     *       400:
+     *         description: Intento de auto-eliminación o eliminación de superadmin
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       403:
+     *         description: No autorizado (requiere rol superadmin)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       404:
+     *         description: Administrador no encontrado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.delete('/admin/:username',
+        authenticate,
+        authorize('superadmin'),
+        validateParams(usernameParamSchema),
+        authController.deleteAdmin
+    );
 
     /**
      * @swagger

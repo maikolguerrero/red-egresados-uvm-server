@@ -22,6 +22,7 @@ import RefreshToken from '../models/RefreshToken.js';
 import TokenBlacklist from '../models/TokenBlacklist.js';
 import AppError from '../middlewares/AppError.js';
 import dotenv from 'dotenv';
+import { date } from 'yup';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -447,7 +448,7 @@ export default class AuthController {
                 requestedBy: req.user?._id,
                 ip: req.ip
             });
-            
+
             // Verificar unicidad
             const existingUser = await User.findOne({ $or: [{ username }, { email }] });
             if (existingUser) {
@@ -496,6 +497,214 @@ export default class AuthController {
                     role: user.role,
                     fullName: user.fullName
                 }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Obtiene la lista de administradores con paginación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados paginados
+     */
+    /**
+     * @method
+     * @async
+     * @description Obtiene la lista de administradores con paginación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados paginados
+     */
+    getAdmins = async (req, res, next) => {
+        try {
+            const { search, isActive, page = 1, limit = 10, sort = 'username', order = 'asc' } = req.query;
+            const skip = (page - 1) * limit;
+            const sortOrder = order === 'desc' ? -1 : 1;
+
+            req.logger.debug('Inicio obtención de lista de administradores', {
+                ip: req.ip,
+                queryParams: req.query
+            });
+
+            // Construir filtro base
+            const filter = {
+                role: { $in: ['admin', 'superadmin'] }
+            };
+
+            // Aplicar filtro de búsqueda
+            if (search) {
+                const searchRegex = new RegExp(search, 'i');
+                filter.$or = [
+                    { fullName: { $regex: searchRegex } },
+                    { username: { $regex: searchRegex } },
+                    { email: { $regex: searchRegex } }
+                ];
+            }
+
+            // Aplicar filtro de estado
+            if (isActive !== undefined) {
+                filter.isActive = isActive === 'true';
+            }
+
+            // Validar campo de ordenamiento
+            const validSortFields = ['username', 'fullName', 'email', 'lastLogin', 'createdAt'];
+            const sortField = validSortFields.includes(sort) ? sort : 'username';
+
+            // Obtener total y resultados
+            const [total, admins] = await Promise.all([
+                User.countDocuments(filter),
+                User.find(filter)
+                    .select('-password -__v -verificationToken -resetPasswordToken')
+                    .sort({ [sortField]: sortOrder })
+                    .skip(skip)
+                    .limit(parseInt(limit))
+            ]);
+
+            // Formatear respuesta
+            res.json({
+                success: true,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit),
+                    limit: parseInt(limit)
+                },
+                data: admins.map(admin => ({
+                    id: admin._id,
+                    username: admin.username,
+                    email: admin.email,
+                    fullName: admin.fullName,
+                    role: admin.role,
+                    profilePicture: admin.profilePicture,
+                    isActive: admin.isActive,
+                    lastLogin: admin.lastLogin,
+                    createdAt: admin.createdAt
+                }))
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Elimina un administrador por username (solo para superadmins)
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.params.username - Username del administrador a eliminar
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si se intenta auto-eliminar o eliminar superadmin
+     *  - 403 si no tiene permisos
+     *  - 404 si el admin no existe
+     */
+    deleteAdmin = async (req, res, next) => {
+        try {
+            const { username } = req.params;
+            const currentUser = req.user;
+
+            req.logger.debug('Inicio de eliminación de administrador', {
+                action: 'delete_admin',
+                requestedBy: currentUser._id,
+                targetUsername: username,
+                ip: req.ip
+            });
+
+            // Verificar que no sea auto-eliminación
+            if (username === currentUser.username) {
+                throw new AppError(
+                    'No puedes eliminarte a ti mismo',
+                    400,
+                    'SELF_DELETION_NOT_ALLOWED',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        userId: currentUser._id,
+                        username: currentUser.username,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Buscar el admin a eliminar por username (case insensitive)
+            const adminToDelete = await User.findOne({
+                username: { $regex: new RegExp(`^${username}$`, 'i') }
+            });
+
+            if (!adminToDelete) {
+                throw new AppError(
+                    'Administrador no encontrado',
+                    404,
+                    'ADMIN_NOT_FOUND',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        username,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que no sea superadmin
+            if (adminToDelete.role === 'superadmin') {
+                throw new AppError(
+                    'No puedes eliminar a un superadministrador',
+                    400,
+                    'SUPERADMIN_DELETION_NOT_ALLOWED',
+                    {
+                        action: 'admin_deletion',
+                        context: 'security',
+                        username,
+                        role: adminToDelete.role,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que sea admin (no egresado)
+            if (adminToDelete.role !== 'admin') {
+                throw new AppError(
+                    'Solo se pueden eliminar administradores',
+                    400,
+                    'INVALID_USER_ROLE',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        username,
+                        role: adminToDelete.role,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Eliminar el admin
+            await User.findOneAndDelete({
+                username: { $regex: new RegExp(`^${username}$`, 'i') }
+            });
+
+            req.logger.info('Administrador eliminado exitosamente', {
+                action: 'admin_deletion_success',
+                username,
+                deletedBy: currentUser._id,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Administrador eliminado correctamente'
             });
 
         } catch (error) {

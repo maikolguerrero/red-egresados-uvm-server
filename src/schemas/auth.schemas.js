@@ -28,6 +28,23 @@ const usernameSchema = yup.string()
     .transform(value => value.toLowerCase())
     .required('El nombre de usuario es requerido');
 
+export const usernameParamSchema = yup.object().shape({
+    username: usernameSchema
+});
+
+// Esquema para listado de administradores
+export const adminListSchema = yup.object().shape({
+    // search: yup.string(),
+    search: yup.string()
+        .transform(value => value ? value.trim() : value)
+        .max(100, 'La búsqueda no puede exceder 100 caracteres'),
+    isActive: yup.boolean(),
+    page: yup.number().min(1).default(1),
+    limit: yup.number().min(1).max(100).default(10),
+    sort: yup.string().oneOf(['username', 'fullName', 'email', 'lastLogin', 'createdAt']).default('username'),
+    order: yup.string().oneOf(['asc', 'desc']).default('asc')
+});
+
 // Esquema para registro
 const registerSchema = {
     email: emailSchema,
