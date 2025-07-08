@@ -12,7 +12,8 @@ import {
     resendVerificationSchema,
     changeEmailSchema,
     usernameParamSchema,
-    adminListSchema
+    adminListSchema,
+    updateEmailAndResendVerificationSchema
 } from '../schemas/auth.schemas.js';
 
 /**
@@ -821,6 +822,84 @@ export default function authRoutes(emailService) {
      *                     details: ["Máximo 3 intentos cada 24 horas"]
      */
     router.post('/resend-verification', validate(resendVerificationSchema), authController.resendVerificationEmail);
+
+
+    /**
+     * @swagger
+     * /api/auth/update-email-and-resend:
+     *   post:
+     *     summary: Actualiza email no verificado y reenvía correo de verificación
+     *     description: |
+     *       Permite a un usuario no verificado actualizar su email y recibir un nuevo correo de verificación.
+     *       Puede identificarse con su email o username.
+     *       Requiere confirmación con la contraseña actual.
+     *     tags: [Autenticación]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - emailOrUsername
+     *               - newEmail
+     *               - password
+     *             properties:
+     *               emailOrUsername:
+     *                 type: string
+     *                 description: Email actual o nombre de usuario (no verificado)
+     *               newEmail:
+     *                 type: string
+     *                 format: email
+     *                 description: Nuevo email a verificar
+     *               password:
+     *                 type: string
+     *                 format: password
+     *                 description: Contraseña actual para confirmar la identidad
+     *     responses:
+     *       200:
+     *         description: Email actualizado y correo de verificación reenviado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                   example: true
+     *                 message:
+     *                   type: string
+     *                   example: "Email actualizado. Se ha enviado un nuevo correo de verificación."
+     *       400:
+     *         description: Validación fallida o cuenta ya verificada
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       401:
+     *         description: Contraseña incorrecta
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       404:
+     *         description: Usuario no encontrado
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       409:
+     *         description: El nuevo email ya está en uso
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+        '/update-email-and-resend',
+        validate(updateEmailAndResendVerificationSchema),
+        authController.updateEmailAndResendVerification
+    );
 
     /**
      * @swagger

@@ -134,3 +134,23 @@ export const changeEmailSchema = yup.object().shape({
     newEmail: emailSchema,
     currentPassword: passwordSchema
 });
+
+// Esquema para actualización de email y reenvío de verificación
+export const updateEmailAndResendVerificationSchema = yup.object().shape({
+    emailOrUsername: yup.string()
+        .required('Email o nombre de usuario es requerido')
+        .test(
+            'is-email-or-username',
+            'Debe ser un email válido o un nombre de usuario (4-20 caracteres alfanuméricos)',
+            function (value) {
+                const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+                const usernameValid = /^[a-z0-9_]{4,20}$/.test(value);
+                return emailValid || usernameValid;
+            }
+        ),
+    newEmail: emailSchema.notOneOf(
+        [yup.ref('emailOrUsername')],
+        'El nuevo email debe ser diferente al actual'
+    ),
+    password: passwordSchema
+});

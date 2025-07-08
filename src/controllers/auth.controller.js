@@ -362,6 +362,187 @@ export default class AuthController {
     /**
      * @method
      * @async
+     * @description Actualiza el email de un usuario no verificado (identificado por email o username) y reenvía el correo de verificación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si la cuenta ya está verificada
+     *  - 401 si la contraseña es incorrecta
+     *  - 404 si el usuario no existe
+     *  - 409 si el nuevo email ya está en uso
+     *  - 429 si se excede el límite de intentos de verificación
+     */
+    updateEmailAndResendVerification = async (req, res, next) => {
+        try {
+            const { emailOrUsername, newEmail, password } = req.body;
+
+            req.logger.debug('Inicio de actualización de email no verificado', {
+                emailOrUsername,
+                newEmail,
+                ip: req.ip
+            });
+
+            // Determinar si el identificador es un email o username
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrUsername);
+
+            // Buscar usuario por email o username
+            const user = await User.findOne({
+                $or: [
+                    isEmail
+                        ? { email: emailOrUsername }
+                        : { username: emailOrUsername.toLowerCase() },
+                ],
+                isVerified: false // Solo para cuentas no verificadas
+            }).select('+password +verificationAttempts +lastVerificationAttempt');
+
+            if (!user) {
+                throw new AppError(
+                    'Usuario no encontrado o cuenta ya verificada',
+                    404,
+                    'USER_NOT_FOUND_OR_VERIFIED',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        emailOrUsername,
+                        isEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no sea igual al actual
+            if (newEmail.toLowerCase() === user.email.toLowerCase()) {
+                throw new AppError(
+                    'El nuevo email debe ser diferente al actual',
+                    400,
+                    'SAME_EMAIL',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        userId: user._id,
+                        currentEmail: user.email,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar contraseña
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                throw new AppError(
+                    'Contraseña incorrecta',
+                    401,
+                    'INVALID_PASSWORD',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'security',
+                        userId: user._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no esté en uso
+            const emailExists = await User.findOne({ email: newEmail });
+            if (emailExists) {
+                throw new AppError(
+                    'El nuevo email ya está en uso',
+                    409,
+                    'EMAIL_ALREADY_EXISTS',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        userId: user._id,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar límite de intentos de verificación (3 cada 24 horas)
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+            if (user.verificationAttempts >= 3 && user.lastVerificationAttempt > oneDayAgo) {
+                throw new AppError(
+                    'Límite de intentos excedido. Por favor espera 24 horas.',
+                    429,
+                    'VERIFICATION_LIMIT_EXCEEDED',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'security',
+                        userId: user._id,
+                        attempts: user.verificationAttempts,
+                        lastAttempt: user.lastVerificationAttempt,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Generar nuevo token de verificación
+            const verificationToken = this.emailService.generateVerificationToken();
+            const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+            // Actualizar usuario con nuevo email y token
+            const oldEmail = user.email;
+            user.email = newEmail.toLowerCase();
+            user.verificationToken = verificationToken;
+            user.verificationTokenExpires = verificationTokenExpires;
+            user.verificationAttempts += 1;
+            user.lastVerificationAttempt = now;
+            await user.save();
+
+            // Enviar email de verificación al nuevo correo
+            const emailResult = await this.emailService.sendVerificationEmail(newEmail, verificationToken);
+
+            if (!emailResult.success) {
+                // Revertir cambios si falla el envío del email
+                user.email = oldEmail;
+                await user.save();
+
+                throw new AppError(
+                    'No se pudo enviar el email de verificación. Por favor intenta nuevamente.',
+                    500,
+                    'EMAIL_SEND_FAILURE',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'email_service',
+                        userId: user._id,
+                        newEmail,
+                        error: emailResult.error,
+                        isCritical: true
+                    }
+                );
+            }
+
+            req.logger.info('Email no verificado actualizado y correo reenviado', {
+                userId: user._id,
+                oldEmail,
+                newEmail,
+                attempts: user.verificationAttempts,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Email actualizado. Se ha enviado un nuevo correo de verificación.',
+                data: {
+                    userId: user._id,
+                    newEmail: user.email
+                }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
      * @description Verifica una cuenta de usuario mediante token
      * @param {Object} req - Objeto de petición Express
      * @param {string} req.validatedQuery.token - Token de verificación
