@@ -373,9 +373,6 @@ UserSchema.virtual('postgradoData', {
     foreignField: '_id'
 });
 
-// Indices para cédula
-UserSchema.index({ cedula: 1 });
-
 // Middleware para actualizar lastSeen al desconectarse
 UserSchema.methods.updateLastSeen = async function () {
     this.isOnline = false;

@@ -431,10 +431,13 @@ export default class EventController {
                 ip: req.ip
             });
 
+            const eventObject = event.toObject();
+
             res.json({
                 success: true,
                 data: {
-                    image: newImage,
+                    // image: newImage,
+                    image: eventObject.media[eventObject.media.length - 1],
                     eventId: id
                 }
             });

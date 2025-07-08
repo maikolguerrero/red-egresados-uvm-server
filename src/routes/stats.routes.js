@@ -25,6 +25,7 @@ export default function statsRoutes(logger) {
      *                 data:
      *                   type: integer
      *                   description: Número de egresados
+     */
     router.get('/graduates', statsController.getGraduatesCount);
 
     /**
