@@ -494,8 +494,13 @@ export default class AuthController {
                 data: {
                     id: user._id,
                     username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
                     role: user.role,
-                    fullName: user.fullName
+                    profilePicture: user.profilePicture,
+                    isActive: user.isActive,
+                    lastLogin: user.lastLogin,
+                    createdAt: user.createdAt
                 }
             });
 
