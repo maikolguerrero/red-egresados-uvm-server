@@ -287,7 +287,13 @@ export default class NotificationService {
         // Notificar a cada admin
         await Promise.all(admins.map(async admin => {
             const contentType = report.comment ? 'comentario' : 'hilo';
-            const message = `@${reporterUsername} reportó el ${contentType} "${report.comment ? comment.content : thread.title}" por: "${report.reason}"`;
+
+            const reason = report.reason === 'spam' ? 'Spam' :
+                report.reason === 'inappropriate' ? 'Contenido inapropiado' :
+                    report.reason === 'harassment' ? 'Acoso' :
+                        report.reason === 'other' ? 'Otro' : 'Desconocido';
+
+            const message = `@${reporterUsername} reportó el ${contentType} "${report.comment ? comment.content : thread.title}" por: "${reason}"`;
 
             await this.createNotification({
                 userId: admin._id,
