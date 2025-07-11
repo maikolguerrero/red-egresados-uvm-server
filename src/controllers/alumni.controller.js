@@ -390,7 +390,6 @@ export default class AlumniController {
         }
     }
 
-
     /**
      * @method updateProfile
      * @async
@@ -431,21 +430,29 @@ export default class AlumniController {
                 );
             }
 
-            // Función para actualizar arrays manteniendo los IDs cuando corresponda
-            const updateArrayField = (fieldName, idField = '_id') => {
+            // Función para actualizar arrays con items manteniendo los IDs
+            const updateArrayWithVisibility = (fieldName, idField = '_id') => {
                 if (updateData[fieldName]) {
-                    userProfile[fieldName] = updateData[fieldName].map(item => {
-                        // Si el item tiene ID, buscarlo en el array existente para mantenerlo
-                        if (item[idField]) {
-                            const existingItem = userProfile[fieldName].find(
-                                existing => existing[idField].toString() === item[idField].toString()
-                            );
-                            if (existingItem) {
-                                return { ...existingItem.toObject(), ...item };
+                    // Actualizar isPublic si viene en el payload
+                    if (updateData[fieldName].isPublic !== undefined) {
+                        userProfile[fieldName].isPublic = updateData[fieldName].isPublic;
+                    }
+
+                    // Actualizar items si vienen en el payload
+                    if (updateData[fieldName].items) {
+                        userProfile[fieldName].items = updateData[fieldName].items.map(item => {
+                            // Si el item tiene ID, buscarlo en el array existente para mantenerlo
+                            if (item[idField]) {
+                                const existingItem = userProfile[fieldName].items.find(
+                                    existing => existing[idField].toString() === item[idField].toString()
+                                );
+                                if (existingItem) {
+                                    return { ...existingItem.toObject(), ...item };
+                                }
                             }
-                        }
-                        return item;
-                    });
+                            return item;
+                        });
+                    }
                 }
             };
 
@@ -475,33 +482,48 @@ export default class AlumniController {
 
             // Actualizar datos profesionales
             if (updateData.professional) {
-                userProfile.professional = {
-                    ...userProfile.professional,
-                    ...updateData.professional
-                };
-
-                // Manejar arrays de skills e interests por separado para evitar sobrescribir
-                if (updateData.professional.skills) {
-                    userProfile.professional.skills = [...new Set([
-                        ...(userProfile.professional.skills || []),
-                        ...(updateData.professional.skills || [])
-                    ])];
+                // Actualizar campos simples (title, summary)
+                if (updateData.professional.title) {
+                    userProfile.professional.title = {
+                        ...userProfile.professional.title,
+                        ...updateData.professional.title
+                    };
                 }
 
+                if (updateData.professional.summary) {
+                    userProfile.professional.summary = {
+                        ...userProfile.professional.summary,
+                        ...updateData.professional.summary
+                    };
+                }
+
+                // Manejar skills
+                if (updateData.professional.skills) {
+                    userProfile.professional.skills = {
+                        values: [...new Set(updateData.professional.skills.values || [])],
+                        isPublic: updateData.professional.skills.isPublic !== undefined
+                            ? updateData.professional.skills.isPublic
+                            : userProfile.professional.skills?.isPublic ?? true
+                    };
+                }
+
+                // Manejar interests
                 if (updateData.professional.interests) {
-                    userProfile.professional.interests = [...new Set([
-                        ...(userProfile.professional.interests || []),
-                        ...(updateData.professional.interests || [])
-                    ])];
+                    userProfile.professional.interests = {
+                        values: [...new Set(updateData.professional.interests.values || [])],
+                        isPublic: updateData.professional.interests.isPublic !== undefined
+                            ? updateData.professional.interests.isPublic
+                            : userProfile.professional.interests?.isPublic ?? true
+                    };
                 }
             }
 
-            // Manejar experiencia laboral (array de objetos)
+            // Manejar experiencia laboral
             if (updateData.experience) {
-                updateArrayField('experience');
+                updateArrayWithVisibility('experience');
 
                 // Validar que cada experiencia tenga los campos requeridos
-                userProfile.experience.forEach(exp => {
+                userProfile.experience.items.forEach(exp => {
                     if (!exp.position || !exp.company || !exp.startDate) {
                         throw new AppError(
                             'Experiencia laboral incompleta. Se requieren puesto, empresa y fecha de inicio',
@@ -517,12 +539,12 @@ export default class AlumniController {
                 });
             }
 
-            // Manejar educación (array de objetos)
+            // Manejar educación
             if (updateData.education) {
-                updateArrayField('education');
+                updateArrayWithVisibility('education');
 
                 // Validar campos requeridos
-                userProfile.education.forEach(edu => {
+                userProfile.education.items.forEach(edu => {
                     if (!edu.institution) {
                         throw new AppError(
                             'Educación incompleta. Se requiere institución',
@@ -538,12 +560,12 @@ export default class AlumniController {
                 });
             }
 
-            // Manejar certificaciones (array de objetos)
+            // Manejar certificaciones
             if (updateData.certifications) {
-                updateArrayField('certifications');
+                updateArrayWithVisibility('certifications');
 
                 // Validar campos requeridos
-                userProfile.certifications.forEach(cert => {
+                userProfile.certifications.items.forEach(cert => {
                     if (!cert.name || !cert.issuingOrganization) {
                         throw new AppError(
                             'Certificación incompleta. Se requiere nombre y organización emisora',

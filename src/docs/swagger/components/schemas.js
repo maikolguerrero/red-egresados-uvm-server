@@ -533,88 +533,475 @@
  *           type: string
  *           format: mongo-id
  *           example: "507f1f77bcf86cd799439012"
+ *         personalData:
+ *           type: object
+ *           properties:
+ *             birthDate:
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: date-time
+ *                   example: "1990-01-01T00:00:00.000Z"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: false
+ *             location:
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "Bogotá, Colombia"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *         contact:
  *           type: object
  *           properties:
  *             phone:
- *               type: string
- *               example: "+584123456789"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "+573001234567"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: false
  *             alternateEmail:
- *               type: string
- *               format: email
- *               example: "personal@example.com"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: email
+ *                   example: "personal@example.com"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: false
  *             website:
- *               type: string
- *               format: url
- *               example: "https://miweb.com"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://miweb.com"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *         socialMedia:
  *           type: object
  *           properties:
  *             instagram:
- *               type: string
- *               example: "@usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "@usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             facebook:
- *               type: string
- *               format: url
- *               example: "https://facebook.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://facebook.com/usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             linkedin:
- *               type: string
- *               format: url
- *               example: "https://linkedin.com/in/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://linkedin.com/in/usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             x:
- *               type: string
- *               format: url
- *               example: "https://x.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://x.com/usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             youtube:
- *               type: string
- *               format: url
- *               example: "https://youtube.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://youtube.com/usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             tiktok:
- *               type: string
- *               format: url
- *               example: "https://tiktok.com/@usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://tiktok.com/@usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             whatsapp:
- *               type: string
- *               format: url
- *               example: "https://whatsapp.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "+573001234567"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: false
  *             telegram:
- *               type: string
- *               format: url
- *               example: "https://telegram.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "@usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: false
  *             github:
- *               type: string
- *               format: url
- *               example: "https://github.com/usuario"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   format: url
+ *                   example: "https://github.com/usuario"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *         professional:
  *           type: object
  *           properties:
  *             title:
- *               type: string
- *               example: "Ingeniero de Software"
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "Ingeniero de Software"
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             summary:
- *               type: string
- *               example: "Experto en desarrollo web con 5 años de experiencia..."
+ *               type: object
+ *               properties:
+ *                 value:
+ *                   type: string
+ *                   example: "Experto en desarrollo web con 5 años de experiencia..."
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             skills:
- *               type: array
- *               items:
- *                 type: string
- *               example: ["JavaScript", "React", "Node.js"]
+ *               type: object
+ *               properties:
+ *                 values:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["JavaScript", "React", "Node.js"]
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
  *             interests:
+ *               type: object
+ *               properties:
+ *                 values:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Tecnología", "Viajes", "Música"]
+ *                 isPublic:
+ *                   type: boolean
+ *                   example: true
+ *         experience:
+ *           type: object
+ *           properties:
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "507f1f77bcf86cd799439013"
+ *                   position:
+ *                     type: string
+ *                     example: "Desarrollador Senior"
+ *                   company:
+ *                     type: string
+ *                     example: "Acme Inc."
+ *                   startDate:
+ *                     type: string
+ *                     format: date
+ *                     example: "2020-01-01"
+ *                   endDate:
+ *                     type: string
+ *                     format: date
+ *                     example: "2022-12-31"
+ *                   current:
+ *                     type: boolean
+ *                     example: false
+ *                   description:
+ *                     type: string
+ *                     example: "Desarrollo de aplicaciones empresariales"
+ *             isPublic:
+ *               type: boolean
+ *               example: true
+ *         education:
+ *           type: object
+ *           properties:
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "507f1f77bcf86cd799439014"
+ *                   institution:
+ *                     type: string
+ *                     example: "Universidad XYZ"
+ *                   degree:
+ *                     type: string
+ *                     example: "Maestría en Ciencias de la Computación"
+ *                   fieldOfStudy:
+ *                     type: string
+ *                     example: "Inteligencia Artificial"
+ *                   startYear:
+ *                     type: integer
+ *                     example: 2010
+ *                   endYear:
+ *                     type: integer
+ *                     example: 2012
+ *             isPublic:
+ *               type: boolean
+ *               example: true
+ *         certifications:
+ *           type: object
+ *           properties:
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "507f1f77bcf86cd799439015"
+ *                   name:
+ *                     type: string
+ *                     example: "Certificado AWS Developer"
+ *                   issuingOrganization:
+ *                     type: string
+ *                     example: "Amazon Web Services"
+ *                   issueDate:
+ *                     type: string
+ *                     format: date
+ *                     example: "2021-05-01"
+ *                   credentialID:
+ *                     type: string
+ *                     example: "AWS-123456789"
+ *                   credentialURL:
+ *                     type: string
+ *                     format: url
+ *                     example: "https://aws.amazon.com/certification"
+ *             isPublic:
+ *               type: boolean
+ *               example: true
+ *
+ *     UserProfileUpdate:
+ *       type: object
+ *       properties:
+ *         personalData:
+ *           $ref: '#/components/schemas/PersonalDataUpdate'
+ *         contact:
+ *           $ref: '#/components/schemas/ContactUpdate'
+ *         socialMedia:
+ *           $ref: '#/components/schemas/SocialMediaUpdate'
+ *         professional:
+ *           $ref: '#/components/schemas/ProfessionalUpdate'
+ *         experience:
+ *           $ref: '#/components/schemas/ExperienceUpdate'
+ *         education:
+ *           $ref: '#/components/schemas/EducationUpdate'
+ *         certifications:
+ *           $ref: '#/components/schemas/CertificationsUpdate'
+ *
+ *     PersonalDataUpdate:
+ *       type: object
+ *       properties:
+ *         birthDate:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: date-time
+ *             isPublic:
+ *               type: boolean
+ *         location:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *
+ *     ContactUpdate:
+ *       type: object
+ *       properties:
+ *         phone:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         alternateEmail:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: email
+ *             isPublic:
+ *               type: boolean
+ *         website:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *
+ *     SocialMediaUpdate:
+ *       type: object
+ *       properties:
+ *         instagram:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         facebook:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *         linkedin:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *         x:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *         youtube:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *         tiktok:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *         whatsapp:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         telegram:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         github:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *               format: url
+ *             isPublic:
+ *               type: boolean
+ *
+ *     ProfessionalUpdate:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         summary:
+ *           type: object
+ *           properties:
+ *             value:
+ *               type: string
+ *             isPublic:
+ *               type: boolean
+ *         skills:
+ *           type: object
+ *           properties:
+ *             values:
  *               type: array
  *               items:
  *                 type: string
- *               example: ["Tecnología", "Viajes", "Música"]
- *         experience:
+ *             isPublic:
+ *               type: boolean
+ *         interests:
+ *           type: object
+ *           properties:
+ *             values:
+ *               type: array
+ *               items:
+ *                 type: string
+ *             isPublic:
+ *               type: boolean
+ *
+ *     ExperienceUpdate:
+ *       type: object
+ *       properties:
+ *         items:
  *           type: array
  *           items:
  *             type: object
  *             properties:
+ *               id:
+ *                 type: string
  *               position:
  *                 type: string
- *                 example: "Desarrollador Senior"
  *               company:
  *                 type: string
- *                 example: "Acme Inc."
  *               startDate:
  *                 type: string
  *                 format: date
@@ -625,35 +1012,46 @@
  *                 type: boolean
  *               description:
  *                 type: string
- *         education:
+ *         isPublic:
+ *           type: boolean
+ *
+ *     EducationUpdate:
+ *       type: object
+ *       properties:
+ *         items:
  *           type: array
  *           items:
  *             type: object
  *             properties:
+ *               id:
+ *                 type: string
  *               institution:
  *                 type: string
- *                 example: "Universidad XYZ"
  *               degree:
  *                 type: string
- *                 example: "Maestría en Ciencias de la Computación"
  *               fieldOfStudy:
  *                 type: string
- *                 example: "Inteligencia Artificial"
  *               startYear:
  *                 type: integer
  *               endYear:
  *                 type: integer
- *         certifications:
+ *         isPublic:
+ *           type: boolean
+ *
+ *     CertificationsUpdate:
+ *       type: object
+ *       properties:
+ *         items:
  *           type: array
  *           items:
  *             type: object
  *             properties:
+ *               id:
+ *                 type: string
  *               name:
  *                 type: string
- *                 example: "Certificado AWS Developer"
  *               issuingOrganization:
  *                 type: string
- *                 example: "Amazon Web Services"
  *               issueDate:
  *                 type: string
  *                 format: date
@@ -662,6 +1060,8 @@
  *               credentialURL:
  *                 type: string
  *                 format: url
+ *         isPublic:
+ *           type: boolean
  */
 
 // =============================================

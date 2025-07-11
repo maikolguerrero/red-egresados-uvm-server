@@ -281,50 +281,7 @@ export default function alumniRoutes(fileService) {
      *       content:
      *         application/json:
      *           schema:
-     *             type: object
-     *             properties:
-     *               contact:
-     *                 type: object
-     *                 properties:
-     *                   phone:
-     *                     type: string
-     *                     example: "+584123456789"
-     *                   alternateEmail:
-     *                     type: string
-     *                     format: email
-     *                     example: "personal@example.com"
-     *                   website:
-     *                     type: string
-     *                     format: url
-     *                     example: "https://miweb.com"
-     *               socialMedia:
-     *                 type: object
-     *                 properties:
-     *                   linkedin:
-     *                     type: string
-     *                     format: url
-     *                     example: "https://linkedin.com/in/usuario"
-     *                   github:
-     *                     type: string
-     *                     format: url
-     *                     example: "https://github.com/usuario"
-     *                   instagram:
-     *                     type: string
-     *                     example: "@usuario"
-     *               professional:
-     *                 type: object
-     *                 properties:
-     *                   title:
-     *                     type: string
-     *                     example: "Ingeniero de Software"
-     *                   summary:
-     *                     type: string
-     *                     example: "Experto en desarrollo web con 5 años de experiencia..."
-     *                   skills:
-     *                     type: array
-     *                     items:
-     *                       type: string
-     *                     example: ["JavaScript", "React", "Node.js"]
+     *             $ref: '#/components/schemas/UserProfileUpdate'
      *     responses:
      *       200:
      *         description: Perfil actualizado exitosamente
