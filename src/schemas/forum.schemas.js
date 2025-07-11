@@ -129,5 +129,8 @@ export const threadQuerySchema = yup.object().shape({
   search: yup.string()
     .max(100, 'La búsqueda no puede exceder 100 caracteres'),
   sort: yup.string()
-    .oneOf(['newest', 'oldest', 'likes', undefined])
+    .oneOf(['newest', 'oldest', 'likes', 'popular', undefined]),
+    username: yup.string()
+    .max(20, 'El nombre de usuario no puede exceder 20 caracteres')
+    .optional()
 });

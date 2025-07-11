@@ -351,10 +351,18 @@ export default class ForumController {
                 tagMatch = 'any',
                 sort = 'newest',
                 search,
-                sortDirection = 'desc'
+                sortDirection = 'desc',
+                username,
             } = req.query;
             const skip = (page - 1) * limit;
             const userId = req.user.id;
+
+            // Peso para vistas
+            const POPULARITY_WEIGHTS = {
+                LIKES: 1,
+                COMMENTS: 1,
+                VIEWS: 0.1
+            };
 
             let tagsArray = tags;
             // Convertir tags a array si viene como string
@@ -371,6 +379,35 @@ export default class ForumController {
             // Filtro por likes si se especifica
             if (sort === 'likes') {
                 filter.likes = { $exists: true, $not: { $size: 0 } };
+            }
+
+            // Filtro por popularidad si se especifica
+            if (sort === 'popular') {
+                filter.$or = [
+                    { likes: { $exists: true, $not: { $size: 0 } } },
+                    { commentCount: { $exists: true, $gt: 0 } },
+                    { viewCount: { $exists: true, $gt: 0 } }
+                ];
+            }
+
+            // Lógica para buscar por username
+            if (username) {
+                // Si se proporciona username, intentamos encontrar el ID de usuario
+                const user = await User.findOne({ username: username.toLowerCase() }).select('_id');
+                if (user) {
+                    filter.author = user._id; // Asignamos el ID encontrado para el filtro
+                } else {
+                    return res.json({
+                        success: true,
+                        pagination: {
+                            total: 0,
+                            page: parseInt(page),
+                            pages: 0,
+                            limit: parseInt(limit)
+                        },
+                        data: []
+                    });
+                }
             }
 
             // Filtro por tags
@@ -391,6 +428,7 @@ export default class ForumController {
                 case 'newest': sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 }; break;
                 case 'oldest': sortOption = { createdAt: sortDirection === 'desc' ? 1 : -1 }; break;
                 case 'likes': sortOption = { likeCount: sortDirection === 'desc' ? -1 : 1 }; break;
+                case 'popular': sortOption = { popularityScore: sortDirection === 'desc' ? -1 : 1 }; break;
                 default: sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 };
             }
 
@@ -417,6 +455,9 @@ export default class ForumController {
                     threadObj.commentCount = commentCount;
                     threadObj.isLiked = thread.likes.some(likeId => likeId.toString() === userId);
                     threadObj.likeCount = thread.likes.length;
+                    threadObj.popularityScore = (threadObj.likeCount * POPULARITY_WEIGHTS.LIKES)
+                        + (threadObj.commentCount * POPULARITY_WEIGHTS.COMMENTS)
+                        + (threadObj.viewCount * POPULARITY_WEIGHTS.VIEWS);
                     return threadObj;
                 })
             );
@@ -424,6 +465,11 @@ export default class ForumController {
             // Si se piden los más likes, ordenar nuevamente por likeCount
             if (sort === 'likes') {
                 threadsWithStats.sort((a, b) => b.likeCount - a.likeCount);
+            }
+
+            // Si se piden los más populares, ordenar por popularityScore
+            if (sort === 'popular') {
+                threadsWithStats.sort((a, b) => b.popularityScore - a.popularityScore);
             }
 
             res.json({

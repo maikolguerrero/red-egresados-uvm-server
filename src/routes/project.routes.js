@@ -141,6 +141,12 @@ export default function projectRoutes(fileService, notificationService) {
      *           type: string
      *           enum: [asc, desc]
      *           default: desc
+     *       - in: query
+     *         name: isPersonal
+     *         description: Filtrar por proyectos personales (true) o colaborativos (false)
+     *         schema:
+     *           type: boolean
+     *           default: false
      *     responses:
      *       200:
      *         description: Lista de proyectos

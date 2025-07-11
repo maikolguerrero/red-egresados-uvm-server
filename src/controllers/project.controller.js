@@ -47,6 +47,160 @@ export default class ProjectController {
         }
     };
 
+    // /**
+    //  * @method getProjects
+    //  * @description Obtiene proyectos con filtros
+    //  */
+    // getProjects = async (req, res, next) => {
+    //     try {
+    //         const {
+    //             page = 1,
+    //             limit = 10,
+    //             status,
+    //             search,
+    //             tags,
+    //             tagMatch = 'any',
+    //             userId = null,
+    //             username,
+    //             sort,
+    //             sortDirection = 'desc'
+    //         } = req.query;
+    //         const skip = (page - 1) * limit;
+    //         const { id: currentUserId } = req.user; // Id del usuario autenticado que realiza la petición
+
+    //         let tagsArray = tags;
+    //         if (tags && typeof tags === 'string') {
+    //             tagsArray = tags.split(',').map(tag => tag.trim().toLowerCase());
+    //         } else if (!tags) {
+    //             tagsArray = [];
+    //         }
+
+    //         const filter = {};
+
+    //         // Filtro por estado
+    //         if (status) filter.status = status;
+
+    //         // Filtro por búsqueda textual
+    //         if (search) filter.$text = { $search: search };
+
+    //         // Filtro por tags
+    //         if (tagsArray.length > 0) {
+    //             if (tagMatch === 'all') {
+    //                 filter.tags = { $all: tagsArray.map(tag => new RegExp(tag, 'i')) };
+    //             } else {
+    //                 filter.tags = { $in: tagsArray.map(tag => new RegExp(tag, 'i')) };
+    //             }
+    //         }
+
+    //         // Lógica para buscar por username o userId
+    //         let targetUserId = userId; // Usaremos userId si se proporciona directamente
+
+    //         if (username) {
+    //             // Si se proporciona username, intentamos encontrar el ID de usuario
+    //             const user = await User.findOne({ username: username.toLowerCase() }).select('_id');
+    //             if (user) {
+    //                 targetUserId = user._id; // Asignamos el ID encontrado para el filtro
+    //             } else {
+    //                 return res.json({
+    //                     success: true,
+    //                     pagination: {
+    //                         total: 0,
+    //                         page: parseInt(page),
+    //                         pages: 0,
+    //                         limit: parseInt(limit)
+    //                     },
+    //                     data: []
+    //                 });
+    //             }
+    //         }
+
+    //         // Filtro por usuario (owner o colaborador) usando el ID resultante
+    //         if (targetUserId) {
+    //             filter.$or = [
+    //                 { owner: targetUserId },
+    //                 { 'collaborators.user': targetUserId }
+    //             ];
+    //         }
+
+    //         // Configurar el ordenamiento
+    //         let sortOption = { createdAt: sortDirection === 'desc' ? -1 : 1 }; // Orden por defecto
+    //         if (sort === 'collaborators') {
+    //             sortOption = { 'collaboratorsCount': sortDirection === 'desc' ? -1 : 1 }; // Ordenar por cantidad de colaboradores (descendente)
+    //         }
+
+    //         const [projects, total] = await Promise.all([
+    //             Project.find(filter)
+    //                 .skip(skip)
+    //                 .limit(parseInt(limit))
+    //                 .sort(sortOption)
+    //                 .populate('owner', 'username profilePicture firstName lastName')
+    //                 .populate('collaborators.user', 'username profilePicture firstName lastName'),
+    //             Project.countDocuments(filter)
+    //         ]);
+
+    //         // Agregar campo collaboratorsCount a cada proyecto
+    //         const projectsWithCount = projects.map(project => {
+    //             const collaboratorsCount = project.collaborators.length;
+    //             return {
+    //                 ...project.toObject(),
+    //                 collaboratorsCount
+    //             };
+    //         });
+
+    //         // Si se ordenó por colaboradores, ordenar nuevamente los resultados ya poblados
+    //         if (sort === 'collaborators') {
+    //             projectsWithCount.sort((a, b) => b.collaboratorsCount - a.collaboratorsCount);
+    //         }
+
+    //         // --- Lógica para verificar colaboración y solicitudes pendientes ---
+    //         const projectsWithStatus = await Promise.all(
+    //             projectsWithCount.map(async (project) => {
+    //                 const isCollaborator = project.collaborators.some(
+    //                     (collab) => collab.user && collab.user.id.toString() === currentUserId
+    //                 );
+
+    //                 req.logger.debug('Proyecto encontrado', {
+    //                     action: 'project_found',
+    //                     userId: currentUserId,
+    //                     projectId: project.id
+    //                 });
+
+    //                 const hasPendingRequest = await ProjectRequest.exists({
+    //                     project: project.id,
+    //                     user: currentUserId,
+    //                     status: 'pending'
+    //                 });
+
+    //                 req.logger.debug('Solicitud pendiente', {
+    //                     action: 'project_request_pending',
+    //                     hasPendingRequest: hasPendingRequest,
+    //                     userId: currentUserId,
+    //                     projectId: project.id
+    //                 });
+
+    //                 return {
+    //                     ...project, // Convierte el documento Mongoose a un objeto JS plano
+    //                     isCollaborator,
+    //                     hasPendingRequest: !!hasPendingRequest // Convierte el resultado de exists a booleano
+    //                 };
+    //             })
+    //         );
+
+    //         res.json({
+    //             success: true,
+    //             pagination: {
+    //                 total,
+    //                 page: parseInt(page),
+    //                 pages: Math.ceil(total / limit),
+    //                 limit: parseInt(limit)
+    //             },
+    //             data: projectsWithStatus
+    //         });
+    //     } catch (error) {
+    //         next(error);
+    //     }
+    // };
+
     /**
      * @method getProjects
      * @description Obtiene proyectos con filtros
@@ -62,6 +216,7 @@ export default class ProjectController {
                 tagMatch = 'any',
                 userId = null,
                 username,
+                isPersonal = false,
                 sort,
                 sortDirection = 'desc'
             } = req.query;
@@ -116,10 +271,14 @@ export default class ProjectController {
 
             // Filtro por usuario (owner o colaborador) usando el ID resultante
             if (targetUserId) {
-                filter.$or = [
-                    { owner: targetUserId },
-                    { 'collaborators.user': targetUserId }
-                ];
+                if (isPersonal) {
+                    filter.owner = targetUserId;
+                } else {
+                    filter.$or = [
+                        { owner: targetUserId },
+                        { 'collaborators.user': targetUserId }
+                    ];
+                }
             }
 
             // Configurar el ordenamiento

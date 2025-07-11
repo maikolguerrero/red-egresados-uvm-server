@@ -94,6 +94,13 @@ ForumThreadSchema.virtual('comments', {
     foreignField: 'thread'
 });
 
+// Indice para popularidad
+ForumThreadSchema.index({
+    likeCount: -1,
+    commentCount: -1,
+    viewCount: -1
+});
+
 ForumThreadSchema.index({ title: 'text', content: 'text' });
 ForumThreadSchema.index({ category: 1 });
 ForumThreadSchema.index({ tags: 1 });

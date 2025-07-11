@@ -278,7 +278,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
      *         name: sort
      *         schema:
      *           type: string
-     *           enum: [newest, oldest, likes]
+     *           enum: [newest, oldest, likes, popular]
      *           default: newest
      *       - in: query
      *         name: sortDirection

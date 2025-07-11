@@ -85,6 +85,8 @@ export const projectQuerySchema = yup.object().shape({
         .default('any'),
     username: yup.string()
         .max(20, 'El nombre de usuario no puede exceder 20 caracteres')
+        .optional(),
+    isPersonal: yup.boolean()
         .optional()
 });
 
