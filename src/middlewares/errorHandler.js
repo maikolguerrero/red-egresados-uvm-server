@@ -131,9 +131,10 @@ export const globalErrorHandler = (err, req, res, next) => {
         if (err.errorCode) response.errorCode = err.errorCode;
         if (err.metadata) response.metadata = err.metadata;
         if (isValidationError && err.errors) response.errors = err.errors;
-    } else if (isValidationError) {
+    } else {
         // En producción, solo indicar que hubo errores de validación
-        response.message = 'Error en los datos enviados';
+        response.metadata = { errors: err.metadata.errors };
+        // response.message = 'Error en los datos enviados';
     }
 
     // Respuesta especial para errores de autenticación en producción
