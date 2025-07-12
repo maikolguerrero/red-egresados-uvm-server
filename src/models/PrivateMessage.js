@@ -25,13 +25,15 @@ const PrivateMessageSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  attachments: [{
-    url: String,
-    type: {
-      type: String,
-      enum: ['image', 'video', 'document']
-    }
-  }]
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'rejected'],
+    default: 'pending'
+  },
+  isInitialRequest: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true,
   toJSON: {

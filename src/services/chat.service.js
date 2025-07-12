@@ -108,6 +108,19 @@ export default class ChatService {
     // Manejar mensajes privados
     socket.on('private_message', async (data, callback) => {
       try {
+        // Verificar si hay una solicitud pendiente entre estos usuarios
+        const hasPendingRequest = await PrivateMessage.exists({
+          $or: [
+            { sender: socket.userId, receiver: data.receiver, status: 'pending' },
+            { sender: data.receiver, receiver: socket.userId, status: 'pending' }
+          ]
+        });
+
+        if (hasPendingRequest) {
+          throw new Error('Ya hay una solicitud de chat pendiente entre estos usuarios');
+        }
+
+        // Guardar el mensaje
         const message = await this.saveMessage({
           sender: socket.userId,
           receiver: data.receiver,
@@ -118,6 +131,7 @@ export default class ChatService {
         // Enviar mensaje al receptor
         this.io.to(`user_${data.receiver}`).emit('new_private_message', message);
 
+        // Notificar actualización de conversación
         await this.notifyConversationUpdate(socket.userId, data.receiver);
         await this.notifyConversationUpdate(data.receiver, socket.userId);
 
@@ -127,6 +141,16 @@ export default class ChatService {
         if (this.isUserViewingChat(data.receiver, socket.userId)) {
           await this.markMessagesAsRead([message._id], socket.userId);
         }
+      } catch (error) {
+        callback({ success: false, error: error.message });
+      }
+    });
+
+    // Manejar aceptación de solicitud de chat
+    socket.on('accept_chat_request', async ({ messageId }, callback) => {
+      try {
+        const acceptedMessage = await this.acceptChatRequest(messageId, socket.userId);
+        callback({ success: true, message: acceptedMessage });
       } catch (error) {
         callback({ success: false, error: error.message });
       }
@@ -252,6 +276,57 @@ export default class ChatService {
     });
   }
 
+  async acceptChatRequest(messageId, acceptorId) {
+    try {
+      // Obtener el mensaje inicial
+      const initialMessage = await PrivateMessage.findById(messageId);
+
+      if (!initialMessage) {
+        throw new Error('Mensaje no encontrado');
+      }
+
+      if (initialMessage.receiver.toString() !== acceptorId.toString()) {
+        throw new Error('No tienes permiso para aceptar esta solicitud');
+      }
+
+      if (!initialMessage.isInitialRequest) {
+        throw new Error('Este no es un mensaje de solicitud inicial');
+      }
+
+      // Actualizar el estado del mensaje inicial
+      initialMessage.status = 'accepted';
+      await initialMessage.save();
+
+      // Actualizar todos los mensajes pendientes entre estos usuarios
+      await PrivateMessage.updateMany(
+        {
+          $or: [
+            { sender: initialMessage.sender, receiver: initialMessage.receiver },
+            { sender: initialMessage.receiver, receiver: initialMessage.sender }
+          ],
+          status: 'pending'
+        },
+        { $set: { status: 'accepted' } }
+      );
+
+      // Notificar a ambos usuarios
+      this.io.to(`user_${initialMessage.sender}`).emit('chat_request_accepted', {
+        messageId: initialMessage._id,
+        acceptorId
+      });
+
+      this.io.to(`user_${initialMessage.receiver}`).emit('chat_request_accepted', {
+        messageId: initialMessage._id,
+        acceptorId
+      });
+
+      return initialMessage;
+    } catch (error) {
+      this.logger.error('Error aceptando solicitud de chat:', error);
+      throw error;
+    }
+  }
+
   async saveMessage(data) {
     try {
       // Validación básica
@@ -259,13 +334,25 @@ export default class ChatService {
         throw new Error('Datos del mensaje incompletos');
       }
 
+      // Verificar si es el primer mensaje entre estos usuarios
+      const existingMessages = await PrivateMessage.countDocuments({
+        $or: [
+          { sender: data.sender, receiver: data.receiver },
+          { sender: data.receiver, receiver: data.sender }
+        ]
+      });
+
+      const isInitialRequest = existingMessages === 0;
+
       // Crear y guardar el mensaje
       const newMessage = await PrivateMessage.create({
         sender: data.sender,
         receiver: data.receiver,
         content: data.content,
         read: data.read || false,
-        readAt: data.read ? new Date() : null
+        readAt: data.read ? new Date() : null,
+        status: isInitialRequest ? 'pending' : 'accepted',
+        isInitialRequest
       });
 
       // Populate para obtener datos del remitente
