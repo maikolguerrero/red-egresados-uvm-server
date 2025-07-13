@@ -106,7 +106,7 @@ export const eventQuerySchema = yup.object().shape({
     search: yup.string()
         .max(100, 'La búsqueda no puede exceder 100 caracteres'),
     tags: yup.string()
-        .min(2, 'Cada tag debe tener al menos 2 caracteres')
+        .min(1, 'Cada tag debe tener al menos 1 caracteres')
         .optional(),
     tagMatch: yup.string()
         .oneOf(['all', 'any', undefined])

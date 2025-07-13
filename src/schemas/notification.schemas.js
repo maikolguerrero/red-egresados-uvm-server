@@ -19,7 +19,22 @@ export const notificationQuerySchema = yup.object().shape({
   read: yup.boolean()
     .optional(),
   type: yup.string()
-    .oneOf(['like', 'mention', 'thread_comment', 'comment_reply', 'thread_activity', undefined])
+    .oneOf([
+      'like',
+      'mention',
+      'thread_mention',
+      'thread_comment',
+      'comment_reply',
+      'thread_activity',
+      'event_reminder',
+      'project_join_request',
+      'project_request_update',
+      'new_report',
+      'report_resolved',
+      'user_warning',
+      'system',
+      undefined
+    ])
     .optional()
 });
 
@@ -27,6 +42,6 @@ export const notificationQuerySchema = yup.object().shape({
 export const bulkNotificationSchema = yup.object().shape({
   message: yup.string()
     .required('El mensaje es requerido')
-    .min(10, 'El mensaje debe tener al menos 10 caracteres')
-    .max(500, 'El mensaje no puede exceder los 500 caracteres')
+    .min(1, 'El mensaje debe tener al menos 1 caracteres')
+    .max(2000, 'El mensaje no puede exceder los 2000 caracteres')
 });

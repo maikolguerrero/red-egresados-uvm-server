@@ -302,24 +302,23 @@ export default class AlumniController {
 
             // Buscar usuario con todos los datos relacionados
             const user = await User.findOne({
-                username: username.toLowerCase(),
-                role: 'egresado'
+                username: username.toLowerCase()
             })
                 .select('-password -verificationToken -verificationTokenExpires -verificationDate -verificationAttempts -lastVerificationAttempt -resetPasswordToken -resetPasswordExpires -__v -profilePicture.uploadedAt')
-                .populate({
-                    path: 'pregrado',
-                    select: 'nombreCompleto cedula carrera fechaGrado -_id',
-                    options: { sort: { fechaGrado: -1 } } // Ordenar por fecha de grado descendente
-                })
-                .populate({
-                    path: 'postgrado',
-                    select: 'nombreCompleto cedula programa fechaGrado -_id',
-                    options: { sort: { fechaGrado: -1 } } // Ordenar por fecha de grado descendente
-                })
                 .populate({
                     path: 'profile',
                     select: '-__v -user -createdAt -updatedAt'
                 });
+
+            if (user.role === 'egresado') {
+                user.pregrado = await EgresadoPregrado.find({ user: user._id })
+                    .select('nombreCompleto cedula carrera fechaGrado -_id')
+                    .sort({ fechaGrado: -1 });
+
+                user.postgrado = await EgresadoPostgrado.find({ user: user._id })
+                    .select('nombreCompleto cedula programa fechaGrado -_id')
+                    .sort({ fechaGrado: -1 });
+            }
 
             if (!user) {
                 throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND', {
@@ -330,7 +329,7 @@ export default class AlumniController {
             }
 
             // Verificar que tenga al menos una carrera de pregrado o postgrado
-            if ((!user.pregrado || user.pregrado.length === 0) && (!user.postgrado || user.postgrado.length === 0)) {
+            if (user.role === 'egresado' && (!user.pregrado || user.pregrado.length === 0) && (!user.postgrado || user.postgrado.length === 0)) {
                 throw new AppError('Datos académicos no encontrados', 404, 'ACADEMIC_DATA_NOT_FOUND', {
                     action: 'get_public_profile',
                     username,
@@ -338,8 +337,6 @@ export default class AlumniController {
                     ip: req.ip
                 });
             }
-
-            console.log(user);
 
             // Obtener datos básicos del primer registro de pregrado o postgrado (el más reciente por el sort)
             const primerRegistro = user.pregrado?.[0] || user.postgrado?.[0];
@@ -358,8 +355,9 @@ export default class AlumniController {
                 user: {
                     id: userData.id,
                     username: userData.username,
+                    fullName: userData.fullName,
                     profilePicture: userData.profilePicture,
-                    lastLogin: userData.lastLogin
+                    lastLogin: userData.lastLogin,
                 },
                 carrerasPregrado: user.pregrado?.map(p => ({
                     carrera: p.carrera,
@@ -1068,7 +1066,6 @@ export default class AlumniController {
 
                 // Si encontramos un usuario, relacionamos el registro
                 if (user) {
-                    console.log("usuario encontrado");
                     record.user = user._id;
                     const savedRecord = await Model.create(record);
 

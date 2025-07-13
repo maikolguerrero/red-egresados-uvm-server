@@ -4,12 +4,12 @@ import * as yup from 'yup';
 export const forumThreadSchema = yup.object().shape({
   title: yup.string()
     .required('El título es requerido')
-    .min(5, 'El título debe tener al menos 5 caracteres')
+    .min(1, 'El título debe tener al menos 1 caracteres')
     .max(200, 'El título no puede exceder 200 caracteres')
     .trim(),
   content: yup.string()
     .required('El contenido es requerido')
-    .min(10, 'El contenido debe tener al menos 10 caracteres')
+    .min(1, 'El contenido debe tener al menos 1 caracteres')
     .max(5000, 'El contenido no puede exceder 5000 caracteres')
     .trim(),
   category: yup.string()
@@ -21,22 +21,22 @@ export const forumThreadSchema = yup.object().shape({
   tags: yup.array()
     .of(
       yup.string()
-        .min(2, 'Cada tag debe tener al menos 2 caracteres')
+        .min(1, 'Cada tag debe tener al menos 1 caracteres')
         .max(20, 'Cada tag no puede exceder 20 caracteres')
-        .matches(/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]+$/, 'Los tags solo pueden contener letras, números y espacios')
+        // .matches(/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]+$/, 'Los tags solo pueden contener letras, números y espacios')
     )
-    .max(5, 'Máximo 5 tags permitidos')
+    // .max(5, 'Máximo 5 tags permitidos')
 });
 
 // Esquema para actualización de hilos
 export const threadUpdateSchema = yup.object().shape({
   title: yup.string()
-    .min(5, 'El título debe tener al menos 5 caracteres')
+    .min(1, 'El título debe tener al menos 1 caracteres')
     .max(200, 'El título no puede exceder 200 caracteres')
     .trim()
     .optional(),
   content: yup.string()
-    .min(10, 'El contenido debe tener al menos 10 caracteres')
+    .min(1, 'El contenido debe tener al menos 1 caracteres')
     .max(5000, 'El contenido no puede exceder 5000 caracteres')
     .trim()
     .optional(),
@@ -49,7 +49,7 @@ export const threadUpdateSchema = yup.object().shape({
   tags: yup.array()
     .of(
       yup.string()
-        .min(2, 'Cada tag debe tener al menos 2 caracteres')
+        .min(1, 'Cada tag debe tener al menos 1 caracteres')
         .max(20, 'Cada tag no puede exceder 20 caracteres')
     )
     .max(5, 'Máximo 5 tags permitidos')
@@ -116,12 +116,12 @@ export const threadQuerySchema = yup.object().shape({
     .default(1),
   limit: yup.number()
     .min(1, 'El límite debe ser al menos 1')
-    .max(50, 'No puedes solicitar más de 50 items')
+    .max(100, 'No puedes solicitar más de 100 items')
     .default(10),
   category: yup.string()
     .oneOf(['general', 'empleos', 'eventos', 'carreras', 'proyectos', undefined]),
   tags: yup.string()
-    .min(2, 'Cada tag debe tener al menos 2 caracteres')
+    .min(1, 'Cada tag debe tener al menos 1 caracteres')
     .optional(),
   tagMatch: yup.string()
     .oneOf(['all', 'any', undefined])

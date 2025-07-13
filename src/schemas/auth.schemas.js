@@ -9,9 +9,10 @@ const emailSchema = yup.string()
 // Esquema base para contraseña (reutilizable)
 const passwordSchema = yup.string()
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    //   .matches(/[A-Z]/, 'Debe contener al menos una mayúscula')
-    //   .matches(/[a-z]/, 'Debe contener al menos una minúscula')
-    //   .matches(/[0-9]/, 'Debe contener al menos un número')
+    //   .matches(/[A-Z]/, 'La contraseña debe contener al menos una mayúscula')
+    //   .matches(/[a-z]/, 'La contraseña debe contener al menos una minúscula')
+    //   .matches(/[0-9]/, 'La contraseña debe contener al menos un número')
+    //   .matches(/[^a-zA-Z0-9]/, 'La contraseña debe contener al menos un carácter especial')
     .required('La contraseña es requerida');
 
 // Esquema para login
@@ -83,7 +84,7 @@ export const alumniRegistrationSchema = yup.object().shape({
 export const adminRegisterSchema = yup.object().shape({
     ...registerSchema,
     fullName: yup.string()
-        .min(5, 'El nombre completo debe tener al menos 5 caracteres')
+        .min(1, 'El nombre completo debe tener al menos 1 caracter')
         .max(100, 'El nombre completo no puede exceder 100 caracteres')
         // .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, 'Solo se permiten letras y espacios')
         .transform(value => value.replace(/\s+/g, ' ').trim())

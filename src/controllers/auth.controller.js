@@ -135,7 +135,7 @@ export default class AuthController {
             const existingUserCedula = await User.findOne({ cedula });
             if (existingUserCedula) {
                 throw new AppError(
-                    'El usuario ya está registrado',
+                    'El egresado ya está registrado',
                     409,
                     'CEDULA_TAKEN',
                     {
@@ -157,6 +157,22 @@ export default class AuthController {
                     {
                         action: 'register_username_conflict',
                         username,
+                        ip: req.ip,
+                        context: 'validation'
+                    }
+                );
+            }
+
+            // Validar unicidad del correo
+            const existingUserEmail = await User.findOne({ email });
+            if (existingUserEmail) {
+                throw new AppError(
+                    'El correo electrónico ya está registrado',
+                    409,
+                    'EMAIL_TAKEN',
+                    {
+                        action: 'register_email_conflict',
+                        email,
                         ip: req.ip,
                         context: 'validation'
                     }
@@ -630,21 +646,34 @@ export default class AuthController {
                 ip: req.ip
             });
 
-            // Verificar unicidad
-            const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-            if (existingUser) {
+            // Validar unicidad del username
+            const existingUserUsername = await User.findOne({ username });
+            if (existingUserUsername) {
                 throw new AppError(
-                    'El nombre de usuario o email ya están registrados',
+                    'El nombre de usuario ya está registrado',
                     409,
-                    'USER_ALREADY_EXISTS',
+                    'USERNAME_TAKEN',
                     {
                         action: 'admin_registration',
-                        conflictFields: {
-                            username: existingUser.username === username,
-                            email: existingUser.email === email
-                        },
-                        existingUserId: existingUser._id,
-                        requestedBy: req.user?._id
+                        username,
+                        ip: req.ip,
+                        context: 'validation'
+                    }
+                );
+            }
+
+            // Validar unicidad del correo
+            const existingUserEmail = await User.findOne({ email });
+            if (existingUserEmail) {
+                throw new AppError(
+                    'El correo electrónico ya está registrado',
+                    409,
+                    'EMAIL_TAKEN',
+                    {
+                        action: 'admin_registration',
+                        email,
+                        ip: req.ip,
+                        context: 'validation'
                     }
                 );
             }

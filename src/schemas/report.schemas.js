@@ -22,7 +22,7 @@ export const reportsQuerySchema = yup.object().shape({
     .default(1),
   limit: yup.number()
     .min(1, 'El límite debe ser al menos 1')
-    .max(50, 'No puedes solicitar más de 50 items')
+    .max(100, 'No puedes solicitar más de 100 items')
     .default(10)
 });
 
@@ -40,7 +40,7 @@ export const resolveReportSchema = yup.object().shape({
       'Acción inválida. Opciones válidas: deleted, warning, no_action, banned_user'
     ),
   message: yup.string()
-    .max(200, 'El mensaje no puede exceder 200 caracteres')
+    .max(2000, 'El mensaje no puede exceder 2000 caracteres')
     .optional(),
   severity: yup.string()
     .oneOf(['low', 'medium', 'high'], 'Gravedad inválida')

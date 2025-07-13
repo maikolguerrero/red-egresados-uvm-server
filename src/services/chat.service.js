@@ -475,10 +475,13 @@ export default class ChatService {
   // Nuevo método para actualizar estado
   async updateUserOnlineStatus(userId, isOnline) {
     try {
-      await User.findByIdAndUpdate(userId, {
-        isOnline,
-        lastSeen: isOnline ? null : new Date()
-      });
+      await User.findOneAndUpdate(
+        { _id: userId, role: 'egresado' }, // Condición para encontrar el documento
+        {
+          isOnline,
+          lastSeen: isOnline ? null : new Date() // Si está online, lastSeen es null; si no, es la fecha actual
+        }
+      );
 
       // Emitir cambio de estado
       this.io.emit('user_status_change', {

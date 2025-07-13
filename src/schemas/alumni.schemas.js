@@ -9,7 +9,7 @@ export const alumniSearchSchema = yup.object().shape({
         .nullable(),
     graduationYear: yup.number()
         .integer('El año debe ser un número entero')
-        .min(1900, 'El año debe ser mayor a 1900')
+        .min(1997, 'El año debe ser mayor a 1997')
         .max(new Date().getFullYear(), 'El año no puede ser futuro')
         .nullable(),
     location: yup.string()
@@ -41,5 +41,5 @@ export const usernameParamSchema = yup.object().shape({
 export const cedulaParamSchema = yup.object().shape({
     cedula: yup.string()
         .required('La cédula es requerida')
-        .matches(/^([VvEe]-)?\d{7,8}$/, 'Formato de cédula inválido')
+        .matches(/^([VvEe]-)?\d{6,9}$/, 'Formato de cédula inválido')
 });
