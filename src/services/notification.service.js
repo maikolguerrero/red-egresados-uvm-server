@@ -580,7 +580,6 @@ export default class NotificationService {
             });
 
             return {
-                success: true,
                 message: `Notificación enviada a ${graduates.length} egresados`,
                 totalSent: graduates.length
             };

@@ -121,7 +121,8 @@ export default class NotificationController {
 
       res.status(200).json({
         success: true,
-        data: result
+        message: result.message,
+        totalSent: result.totalSent,
       });
     } catch (error) {
       next(error);

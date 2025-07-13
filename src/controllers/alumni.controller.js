@@ -357,6 +357,7 @@ export default class AlumniController {
                     username: userData.username,
                     fullName: userData.fullName,
                     profilePicture: userData.profilePicture,
+                    role: userData.role,
                     lastLogin: userData.lastLogin,
                 },
                 carrerasPregrado: user.pregrado?.map(p => ({

@@ -54,7 +54,7 @@ const RefreshTokenSchema = new mongoose.Schema({
        * @description Autoeliminación del documento mediante TTL index.
        * @see {@link https://www.mongodb.com/docs/manual/core/index-ttl/}
        */
-    index: { expires: '1d' }
+    index: { expires: '7d' }
   },
   ip: {
     type: String,
