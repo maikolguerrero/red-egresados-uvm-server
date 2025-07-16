@@ -31,7 +31,7 @@ const baseEventSchema = {
         .nullable()
         .transform(value => value || null),
     virtualLink: yup.string()
-        .url('Debe ser una URL válida')
+        .url('El enlace virtual debe ser una URL válida')
         .nullable()
         .transform(value => value || null),
     organizers: yup.array()

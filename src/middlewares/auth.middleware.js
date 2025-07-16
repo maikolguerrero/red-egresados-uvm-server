@@ -55,7 +55,7 @@ export const authenticate = async (req, res, next) => {
 
         if (!accessToken) {
             throw new AppError(
-                'No autorizado - Token no proporcionado',
+                'No autorizado',
                 401,
                 'MISSING_AUTH_TOKEN',
                 {

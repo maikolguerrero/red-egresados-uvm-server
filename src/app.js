@@ -105,7 +105,9 @@ const httpServer = createServer(app);
  */
 const io = new Server(httpServer, {
     cors: {
-        origin: isProduction ? [process.env.FRONTEND_URL] : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.105:5173'],
+        origin: isProduction
+            ? [process.env.FRONTEND_URL]
+            : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.106:5173'],
         // origin: isProduction ? [process.env.FRONTEND_URL] : 'http://localhost:5173',/192.168.0.105:5173/
         methods: ['GET', 'POST'],
         credentials: true
@@ -220,7 +222,7 @@ const corsOptions = {
     ] : [
         'http://localhost:5173',
         'http://localhost:3000',
-        'http://192.168.0.105:5173'
+        'http://192.168.0.106:5173'
     ],
     credentials: true, // Permite cookies en cross-origin
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
