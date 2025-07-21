@@ -401,14 +401,14 @@ UserSchema.methods.checkSuspensionStatus = async function () {
     );
 
     // Si no hay suspensiones activas pero isActive está en false
-    if (!activeSuspension && !this.isActive) {
+    if (!activeSuspension && !this.isActive && this.isVerified) {
         this.isActive = true;
         await this.save();
         return { wasSuspended: false, isNowActive: true };
     }
 
     // Si hay una suspensión activa pero isActive está en true
-    if (activeSuspension && this.isActive) {
+    if (activeSuspension && this.isActive && this.isVerified) {
         this.isActive = false;
         await this.save();
         return { wasSuspended: true, isNowActive: false };
@@ -428,19 +428,19 @@ UserSchema.methods.checkSuspensionStatus = async function () {
  * user.preSave();
  */
 UserSchema.pre('save', async function (next) {
-    if (this.isModified('suspensions') || !this.isActive) {
+    if ((this.isModified('suspensions') || !this.isActive) && this.isVerified) {
         const now = new Date();
         const hasActiveSuspension = this.suspensions.some(s =>
             !s.until || new Date(s.until) > now
         );
 
         // Si no hay suspensiones activas pero isActive está en false
-        if (!hasActiveSuspension && !this.isActive) {
+        if (!hasActiveSuspension && !this.isActive && this.isVerified) {
             this.isActive = true;
         }
 
         // Si hay suspensiones activas pero isActive está en true
-        if (hasActiveSuspension && this.isActive) {
+        if (hasActiveSuspension && this.isActive && this.isVerified) {
             this.isActive = false;
         }
     }

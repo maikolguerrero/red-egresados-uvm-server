@@ -749,7 +749,7 @@ export default class AlumniController {
             });
 
             let batch = [];
-            const BATCH_SIZE = 500;
+            const BATCH_SIZE = 1;
             let firstLine = true;
 
             for await (const line of rl) {
@@ -768,16 +768,16 @@ export default class AlumniController {
 
                     if (validationError) {
                         // throw new AppError(validationError, 400, 'VALIDATION_ERROR');
-                        if (validationError.type === 'VALIDATION_ERROR') {
+                        if (validationError.type === 'ERROR_VALIDACION') {
                             stats.validationErrors++;
                         } else {
                             stats.dbErrors++;
                         }
 
                         stats.errorDetails.push({
-                            line: stats.total,
+                            line: stats.total + 1,
                             error: validationError,
-                            code: 'VALIDATION_ERROR',
+                            code: 'ERROR_VALIDACION',
                             record: line.substring(0, 100) + (line.length > 100 ? '...' : '')
                         });
                     }
@@ -791,7 +791,7 @@ export default class AlumniController {
                         batch = [];
                     }
                 } catch (error) {
-                    throw new AppError(error.message, 400, 'VALIDATION_ERROR');
+                    throw new AppError(error.message, 400, 'ERROR_VALIDACION');
                 }
             }
 
@@ -1022,9 +1022,10 @@ export default class AlumniController {
 
         if (batchResult.errors.length > 0) {
             stats.errorDetails.push(...batchResult.errors.map(err => ({
-                line: `Lote ${stats.total - batchSize + 1}-${stats.total}`,
+                // line: `Lote ${stats.total - batchSize + 1}-${stats.total}`, // con 500 en batchSize
+                line: `${stats.total + 1}`, // con 1 en batchSize
                 error: err.errmsg || err.error,
-                code: err.code || (err.error.includes('duplicado') ? 'DUPLICATE_RECORD' : 'DB_ERROR'),
+                code: err.code || (err.error.includes('duplicado') ? 'EGRESADO_DUPLICADO' : 'DB_ERROR'),
                 record: err.record || JSON.stringify(err.op || {}).substring(0, 100) + '...'
             })));
         }

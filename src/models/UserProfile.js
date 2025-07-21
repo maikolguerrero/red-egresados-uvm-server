@@ -126,7 +126,7 @@ const UserProfileSchema = new mongoose.Schema({
       isPublic: { type: Boolean, default: false }
     },
     location: {
-      value: String,
+      value: { type: String, trim: true },
       isPublic: { type: Boolean, default: false }
     },
   },
@@ -157,7 +157,7 @@ const UserProfileSchema = new mongoose.Schema({
         type: String,
         trim: true
       },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     }
   },
 
@@ -165,31 +165,31 @@ const UserProfileSchema = new mongoose.Schema({
   socialMedia: {
     instagram: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     facebook: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     linkedin: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     x: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     github: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     youtube: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     tiktok: {
       value: { type: String, trim: true },
-      isPublic: { type: Boolean, default: true }
+      isPublic: { type: Boolean, default: false }
     },
     whatsapp: {
       value: { type: String, trim: true },
@@ -203,15 +203,21 @@ const UserProfileSchema = new mongoose.Schema({
 
   // Sección Profesional
   professional: {
-    title: { value: String, isPublic: Boolean },
-    summary: { value: String, isPublic: Boolean },
+    title: { 
+      value: { type: String, trim: true }, 
+      isPublic: { type: Boolean, default: false } 
+    },
+    summary: { 
+      value: { type: String, trim: true }, 
+      isPublic: { type: Boolean, default: false } 
+    },
     skills: {
-      values: [{ type: String }],
-      isPublic: Boolean
+      values: [{ type: String, trim: true }],
+      isPublic: { type: Boolean, default: false }
     },
     interests: {
-      values: [{ type: String }],
-      isPublic: Boolean
+      values: [{ type: String, trim: true }],
+      isPublic: { type: Boolean, default: false }
     }
   },
 
@@ -222,9 +228,9 @@ const UserProfileSchema = new mongoose.Schema({
       startDate: { type: Date, required: true },
       endDate: { type: Date },
       current: { type: Boolean, default: false },
-      description: { type: String }
+      description: { type: String, trim: true }
     }],
-    isPublic: { type: Boolean, default: true }
+    isPublic: { type: Boolean, default: false }
   },
 
   education: {
@@ -232,10 +238,10 @@ const UserProfileSchema = new mongoose.Schema({
       institution: { type: String, required: true, trim: true },
       degree: { type: String, trim: true },
       fieldOfStudy: { type: String, trim: true },
-      startYear: { type: Number },
+      // startYear: { type: Number },
       endYear: { type: Number }
     }],
-    isPublic: { type: Boolean, default: true }
+    isPublic: { type: Boolean, default: false }
   },
 
   certifications: {
@@ -246,7 +252,7 @@ const UserProfileSchema = new mongoose.Schema({
       credentialID: { type: String, trim: true },
       credentialURL: { type: String, trim: true }
     }],
-    isPublic: { type: Boolean, default: true }
+    isPublic: { type: Boolean, default: false }
   }
 }, {
   timestamps: true,

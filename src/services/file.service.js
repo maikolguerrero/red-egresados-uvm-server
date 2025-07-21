@@ -51,7 +51,7 @@ export default class FileService {
      */
     _fileFilter(req, file, cb) {
         const allowedTypes = [
-            'image/jpeg', 'image/png', 'image/gif', // Imágenes
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', // Imágenes
             'video/mp4', 'video/quicktime', 'video/x-msvideo' // Videos
         ];
 
@@ -376,7 +376,7 @@ export default class FileService {
                 }
 
                 // Verificar tipo de archivo
-                const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
                 const allowedVideoTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
                 const allowedTextTypes = ['text/csv', 'application/vnd.ms-excel'];
 

@@ -33,15 +33,15 @@ const educationItemSchema = yup.object().shape({
   institution: yup.string().required('La institución es requerida'),
   degree: yup.string().nullable(),
   fieldOfStudy: yup.string().nullable(),
-  startYear: yup.number()
-    .integer()
-    .min(1900, 'El año de inicio es inválido')
-    .max(new Date().getFullYear(), 'El año de inicio no puede ser futuro')
-    .nullable()
-    .typeError('El año de inicio debe ser un número'),
+  // startYear: yup.number()
+  //   .integer()
+  //   .min(1900, 'El año de inicio es inválido')
+  //   .max(new Date().getFullYear(), 'El año de inicio no puede ser futuro')
+  //   .nullable()
+  //   .typeError('El año de inicio debe ser un número'),
   endYear: yup.number()
     .integer()
-    .min(yup.ref('startYear'), 'El año de fin debe ser posterior o igual al de inicio')
+    .min(1900, 'El año de fin debe ser posterior o igual al de inicio')
     .max(new Date().getFullYear(), 'El año de fin no puede ser futuro')
     .nullable()
     .typeError('El año de fin debe ser un número')
