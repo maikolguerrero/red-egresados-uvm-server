@@ -4,10 +4,11 @@
   "description": "Backend de la Red de Egresados de la UVM",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "loadAlumni": "node src/scripts/loadAlumni.js",
-    "createAdmin": "node src/scripts/createAdmin.js",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "babel src --out-dir dist --extensions .js,.jsx,.ts,.tsx",
+    "create_admin": "node src/scripts/createAdmin.js",
+    "create_superadmin": "node dist/scripts/createAdmin.js",
     "docs": "jsdoc -c src/config/jsdoc.json"
   },
   "repository": {
@@ -46,6 +47,9 @@
     "yup": "^1.6.1"
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.0",
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
     "jsdoc": "^4.0.4",
     "nodemon": "^3.1.9"
   }

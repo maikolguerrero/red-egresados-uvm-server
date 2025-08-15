@@ -175,7 +175,10 @@ export default class AlumniController {
             // Filtro por ubicación
             if (location) {
                 const profiles = await UserProfile.find({
-                    'personalData.location': { $regex: location, $options: 'i' }
+                    $and: [
+                        { 'personalData.location.isPublic': true },
+                        { 'personalData.location.value': { $regex: location, $options: 'i' } }
+                    ]
                 }).select('user');
                 filterConditions.push({ _id: { $in: profiles.map(p => p.user) } });
             }
@@ -187,8 +190,18 @@ export default class AlumniController {
                     EgresadoPostgrado.find({ nombreCompleto: { $regex: query, $options: 'i' } }).select('_id'),
                     UserProfile.find({
                         $or: [
-                            { 'contact.alternateEmail': { $regex: query, $options: 'i' } },
-                            { 'professional.title': { $regex: query, $options: 'i' } }
+                            {
+                                $and: [
+                                    { 'contact.alternateEmail.isPublic': true },
+                                    { 'contact.alternateEmail.value': { $regex: query, $options: 'i' } }
+                                ]
+                            },
+                            {
+                                $and: [
+                                    { 'professional.title.isPublic': true },
+                                    { 'professional.title.value': { $regex: query, $options: 'i' } }
+                                ]
+                            }
                         ]
                     }).select('user')
                 ]);
@@ -248,9 +261,7 @@ export default class AlumniController {
                     id: user._id,
                     username: user.username,
                     profilePicture: user.profilePicture,
-                    lastLogin: user.lastLogin,
                     nombreCompleto,
-                    ubicacion: user.profile?.personalData?.location,
                     carrerasPregrado: carrerasPregrado.map(p => ({
                         carrera: p.carrera,
                         fechaGrado: p.fechaGrado
@@ -259,8 +270,6 @@ export default class AlumniController {
                         programa: p.programa,
                         fechaGrado: p.fechaGrado
                     })),
-                    tituloProfesional: user.profile?.professional?.title,
-                    redesSociales: user.profile?.socialMedia
                 };
             });
 
@@ -280,19 +289,19 @@ export default class AlumniController {
         }
     }
 
-
     /**
- * @method getAlumniProfileByUsername
- * @async
- * @description Obtiene el perfil público de un egresado incluyendo información de UserProfile
- * @param {Object} req - Objeto de petición Express
- * @param {Object} res - Objeto de respuesta Express
- * @param {Function} next - Función para pasar al siguiente middleware
- * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil completo
- */
+     * @method getAlumniProfileByUsername
+     * @async
+     * @description Obtiene el perfil público de un egresado incluyendo información de UserProfile
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con el perfil completo
+     */
     getAlumniProfileByUsername = async (req, res, next) => {
         try {
             const { username } = req.params;
+            const { id: userId, role } = req.user;
 
             req.logger.debug('Buscando perfil público de egresado', {
                 action: 'get_public_profile',
@@ -349,6 +358,128 @@ export default class AlumniController {
             const userData = user.toObject();
             const profileData = user.profile?.toObject() || {};
 
+            // Función para filtrar campos según isPublic
+            const filterPrivateFields = (profile) => {
+                if (!profile) return {};
+
+                const filteredProfile = {};
+
+                // Filtrar datos personales
+                if (profile.personalData) {
+                    filteredProfile.personalData = {};
+                    if (profile.personalData.birthDate) {
+                        filteredProfile.personalData.birthDate = {
+                            isPublic: profile.personalData.birthDate.isPublic,
+                            value: profile.personalData.birthDate.isPublic ? profile.personalData.birthDate.value : undefined
+                        };
+                    }
+                    if (profile.personalData.location) {
+                        filteredProfile.personalData.location = {
+                            isPublic: profile.personalData.location.isPublic,
+                            value: profile.personalData.location.isPublic ? profile.personalData.location.value : undefined
+                        };
+                    }
+                }
+
+                // Filtrar contacto
+                if (profile.contact) {
+                    filteredProfile.contact = {};
+                    if (profile.contact.phone) {
+                        filteredProfile.contact.phone = {
+                            isPublic: profile.contact.phone.isPublic,
+                            value: profile.contact.phone.isPublic ? profile.contact.phone.value : undefined
+                        };
+                    }
+                    if (profile.contact.alternateEmail) {
+                        filteredProfile.contact.alternateEmail = {
+                            isPublic: profile.contact.alternateEmail.isPublic,
+                            value: profile.contact.alternateEmail.isPublic ? profile.contact.alternateEmail.value : undefined
+                        };
+                    }
+                    if (profile.contact.website) {
+                        filteredProfile.contact.website = {
+                            isPublic: profile.contact.website.isPublic,
+                            value: profile.contact.website.isPublic ? profile.contact.website.value : undefined
+                        };
+                    }
+                }
+
+                // Filtrar redes sociales
+                if (profile.socialMedia) {
+                    filteredProfile.socialMedia = {};
+                    const socialPlatforms = ['instagram', 'facebook', 'linkedin', 'x', 'github', 'youtube', 'tiktok', 'whatsapp', 'telegram'];
+                    socialPlatforms.forEach(platform => {
+                        if (profile.socialMedia[platform]) {
+                            filteredProfile.socialMedia[platform] = {
+                                isPublic: profile.socialMedia[platform].isPublic,
+                                value: profile.socialMedia[platform].isPublic ? profile.socialMedia[platform].value : undefined
+                            };
+                        }
+                    });
+                }
+
+                // Filtrar información profesional
+                if (profile.professional) {
+                    filteredProfile.professional = {};
+                    if (profile.professional.title) {
+                        filteredProfile.professional.title = {
+                            isPublic: profile.professional.title.isPublic,
+                            value: profile.professional.title.isPublic ? profile.professional.title.value : undefined
+                        };
+                    }
+                    if (profile.professional.summary) {
+                        filteredProfile.professional.summary = {
+                            isPublic: profile.professional.summary.isPublic,
+                            value: profile.professional.summary.isPublic ? profile.professional.summary.value : undefined
+                        };
+                    }
+                    if (profile.professional.skills) {
+                        filteredProfile.professional.skills = {
+                            isPublic: profile.professional.skills.isPublic,
+                            values: profile.professional.skills.isPublic ? profile.professional.skills.values : undefined
+                        };
+                    }
+                    if (profile.professional.interests) {
+                        filteredProfile.professional.interests = {
+                            isPublic: profile.professional.interests.isPublic,
+                            values: profile.professional.interests.isPublic ? profile.professional.interests.values : undefined
+                        };
+                    }
+                }
+
+                // Filtrar experiencia laboral
+                if (profile.experience) {
+                    filteredProfile.experience = {
+                        isPublic: profile.experience.isPublic,
+                        items: profile.experience.isPublic ? profile.experience.items : []
+                    };
+                }
+
+                // Filtrar educación adicional
+                if (profile.education) {
+                    filteredProfile.education = {
+                        isPublic: profile.education.isPublic,
+                        items: profile.education.isPublic ? profile.education.items : []
+                    };
+                }
+
+                // Filtrar certificaciones
+                if (profile.certifications) {
+                    filteredProfile.certifications = {
+                        isPublic: profile.certifications.isPublic,
+                        items: profile.certifications.isPublic ? profile.certifications.items : []
+                    };
+                }
+
+                return filteredProfile;
+            };
+
+            // Filtrar el perfil según la visibilidad
+            const filteredProfile =
+                (userId === user._id.toString() || role === 'admin' || role === 'superadmin')
+                    ? profileData
+                    : filterPrivateFields(profileData);
+
             // Estructurar respuesta
             const response = {
                 ...datosBasicos,
@@ -370,7 +501,7 @@ export default class AlumniController {
                     fechaGrado: p.fechaGrado,
                     numeroAsignado: p.numeroAsignado
                 })) || [],
-                profile: profileData
+                profile: filteredProfile
             };
 
             req.logger.info('Perfil público obtenido exitosamente', {

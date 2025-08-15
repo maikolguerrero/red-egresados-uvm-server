@@ -55,7 +55,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
     router.post('/threads',
         authenticate,
         validate(forumThreadSchema),
-        fileService.getValidationMiddleware('media', { maxSize: 50 }),
+        fileService.getValidationMiddleware('media', { maxSize: 10 }),
         forumController.createThread
     );
 
@@ -375,7 +375,7 @@ export default function forumRoutes(fileService, notificationService, emailServi
     router.post('/threads/:threadId/comments',
         authenticate,
         validateParams(threadIdSchema),
-        fileService.getValidationMiddleware('media', { maxSize: 50 }),
+        fileService.getValidationMiddleware('media', { maxSize: 10 }),
         validate(forumCommentSchema),
         forumController.addComment
     );
@@ -552,13 +552,13 @@ export default function forumRoutes(fileService, notificationService, emailServi
      *         $ref: '#/components/responses/ForbiddenError'
      *       404:
      *         $ref: '#/components/responses/CommentNotFound'
-        */
+     */
     router.patch(
         '/comments/:commentId',
         authenticate,
         validateParams(commentIdSchema),
         validate(commentUpdateSchema),
-        fileService.getValidationMiddleware('media', { maxSize: 50 }),
+        fileService.getValidationMiddleware('media', { maxSize: 10 }),
         forumController.updateComment
     );
 

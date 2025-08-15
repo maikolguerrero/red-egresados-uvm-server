@@ -330,6 +330,8 @@ export default class AuthController {
                         ip: req.ip
                     }
                 );
+            } else {
+                user.verificationAttempts = 0;
             }
 
             // Generar nuevo token y actualizar usuario
@@ -584,7 +586,7 @@ export default class AuthController {
 
             if (!user) {
                 throw new AppError(
-                    'Token inválido o expirado',
+                    'Solicitud expirada',
                     400,
                     'INVALID_VERIFICATION_TOKEN',
                     {
@@ -1181,7 +1183,7 @@ export default class AuthController {
                 res.clearCookie('accessToken', cookieOptions);
                 res.clearCookie('refreshToken', cookieOptions);
 
-                throw new AppError('Refresh token inválido o expirado', 401, 'INVALID_REFRESH_TOKEN', {
+                throw new AppError('Sesión expirada', 401, 'INVALID_REFRESH_TOKEN', {
                     action: 'login_failed',
                     context: 'security',
                     reason: 'refresh_token_generation_failed',
@@ -1529,7 +1531,7 @@ export default class AuthController {
 
             if (!user) {
                 throw new AppError(
-                    'Token inválido o expirado',
+                    'Solicitud expirada',
                     400,
                     'INVALID_RESET_TOKEN',
                     {

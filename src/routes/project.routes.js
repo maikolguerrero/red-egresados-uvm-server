@@ -707,7 +707,7 @@ export default function projectRoutes(fileService, notificationService) {
         '/:id/media',
         authenticate,
         validateParams(projectIdSchema),
-        fileService.getValidationMiddleware('media', { maxSize: 50 }),
+        fileService.getValidationMiddleware('media', { maxSize: 10 }),
         projectController.addProjectMedia
     );
 

@@ -30,8 +30,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
-import User from '../models/User.js'; // Asegúrate de que la ruta sea correcta
-import connectDB from '../config/db.js'; // Importa la conexión como en loadAlumni.js
+import User from '../models/User.js';
+import connectDB from '../config/db.js';
 import logger from '../config/logger.js';
 
 dotenv.config();

@@ -119,7 +119,7 @@ export const authenticate = async (req, res, next) => {
         if (error instanceof jwt.JsonWebTokenError) {
             if (error.name === 'TokenExpiredError') {
                 error = new AppError(
-                    'Token expirado',
+                    'Sesión expirada',
                     401,
                     'TOKEN_EXPIRED',
                     {
@@ -130,7 +130,7 @@ export const authenticate = async (req, res, next) => {
                 );
             } else {
                 error = new AppError(
-                    'Token inválido',
+                    'Sesión expirada',
                     401,
                     'INVALID_TOKEN',
                     {
@@ -145,19 +145,6 @@ export const authenticate = async (req, res, next) => {
     }
 };
 
-/**
- * @fileoverview Middlewares de autenticación y autorización JWT
- * @module middlewares/auth.middleware
- * @requires jsonwebtoken - Para verificación de tokens
- * @requires ../models/User - Modelo de usuario
- * @requires ./AppError - Clase de errores personalizados
- * 
- * @description  
- * Middlewares para:
- * - Autenticación con JWT (cookie o header)  
- * - Control de acceso basado en roles  
- * - Protección de rutas con manejo de errores detallado
- */
 
 /**
  * Middleware de autenticación JWT

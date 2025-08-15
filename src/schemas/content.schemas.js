@@ -33,7 +33,7 @@ export const contentUpdateSchema = yup.object().shape({
                         width: yup.number().optional(),
                         height: yup.number().optional()
                     }).optional()
-                }),
+                }).optional(),
                 order: yup.number().min(0).optional(),
             })).optional(),
             order: yup.number().min(0).optional()

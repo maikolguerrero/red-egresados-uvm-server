@@ -1,5 +1,6 @@
 # Archivos de entorno
 .env
+.env.backend
 
 # Dependencias
 node_modules/
@@ -39,3 +40,4 @@ coverage/
 *.csv
 data/
 src/docs/jsdoc/
+certs/

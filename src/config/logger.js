@@ -174,7 +174,7 @@ const fileRotateOptions = (subfolder) => ({
 const transports = [
     // Consola (solo en desarrollo con más detalle)
     new winston.transports.Console({
-        level: isProduction ? 'warn' : 'debug', // En producción solo warnings y superiores
+        level: isProduction ? 'info' : 'debug', // En producción solo warnings y superiores
         format: consoleFormat,
         silent: isProduction && process.env.DISABLE_CONSOLE_LOG === 'true' // Opcional: deshabilitar completamente en producción
     }),

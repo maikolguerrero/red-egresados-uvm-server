@@ -106,7 +106,8 @@ export const globalErrorHandler = (err, req, res, next) => {
         currentLogger.warn('Error de validación', {
             ...logMetadata,
             context: 'validation',
-            errorCount: err.errors?.length || 0
+            errorCount: err.errors?.length || 0,
+            errors: err.errors
         });
     } else if (isClientError) {
         // Otros errores del cliente
@@ -116,7 +117,7 @@ export const globalErrorHandler = (err, req, res, next) => {
     // Construcción de la respuesta al cliente
     const response = {
         success: false,
-        requestId: req.requestId
+        // requestId: req.requestId
     };
 
     // Mensaje seguro para producción
@@ -132,14 +133,33 @@ export const globalErrorHandler = (err, req, res, next) => {
         if (err.metadata) response.metadata = err.metadata;
         if (isValidationError && err.errors) response.errors = err.errors;
     } else {
-        // En producción, solo indicar que hubo errores de validación
-        response.metadata = { errors: err.metadata.errors };
-        // response.message = 'Error en los datos enviados';
+
+        if (isValidationError && err.errors) response.errors = err.errors;
+
+        let errorMessage = err.message;
+
+        // Comprobar si es un error de validación con una estructura conocida
+        if (err.errors) {
+            // Puedes iterar sobre todos los errores
+            const firstErrorKey = Object.keys(err.errors)[0];
+            if (firstErrorKey) {
+                // Accede al mensaje del primer error encontrado
+                errorMessage = err.errors[firstErrorKey].message;
+                response.errors = err.errors;
+            }
+        }
+
+        // Si la estructura anterior no se encuentra, buscar en metadatos como fallback
+        if (err?.metadata?.errors?.[0]?.message) {
+            errorMessage = err.metadata.errors[0].message;
+        }
+
+        response.message = errorMessage;
     }
 
-    // Respuesta especial para errores de autenticación en producción
-    if (isProduction && isSecurityError) {
-        response.message = 'Error de autenticación';
+    // Manejar errores de tamaño de archivo
+    if (err.code === "LIMIT_FILE_SIZE") {
+        response.message = 'El archivo es demasiado grande, por favor sube un archivo menor a 10MB';
     }
 
     res.status(statusCode).json(response);

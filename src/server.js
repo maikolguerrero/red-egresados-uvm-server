@@ -18,12 +18,11 @@
  */
 
 import dotenv from 'dotenv';
-import { httpServer, io, notificationService, chatService } from './src/app.js'; // Importa la app configurada
-import connectDB from './src/config/db.js';
-import logger from './src/config/logger.js';
-import EventScheduler from './src/services/eventScheduler.service.js';
-import { socketAuthenticate, socketAuthorize } from './src/middlewares/socketAuth.js';
-import PrivateMessage from './src/models/PrivateMessage.js';
+import { server, io, notificationService, chatService } from './app.js'; // Importa la app configurada
+import connectDB from './config/db.js';
+import logger from './config/logger.js';
+import EventScheduler from './services/eventScheduler.service.js';
+import { socketAuthenticate } from './middlewares/socketAuth.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -115,6 +114,7 @@ async function startServer() {
         // Configurar Socket.io
         configureSocketIO();
 
+        // Configurar servicios
         configureServices();
 
         // Iniciar el servidor
@@ -124,14 +124,13 @@ async function startServer() {
         // });
 
         // Iniciar el servidor en todas las interfaces de red
-        httpServer.listen(PORT, '0.0.0.0', () => {
+        server.listen(PORT, '0.0.0.0', () => {
             logger.info(`Servidor escuchando en puerto ${PORT}`);
             serverRetryCount = 0; // Resetear contador al éxito
         });
 
-
         // Manejar errores del servidor
-        httpServer.on('error', (err) => {
+        server.on('error', (err) => {
             logger.error('Error en el servidor:', {
                 error: err.message,
                 stack: !isProduction ? err.stack : undefined

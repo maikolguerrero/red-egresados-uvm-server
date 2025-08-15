@@ -1,0 +1,18 @@
+{
+    "presets": [
+        [
+            "@babel/preset-env",
+            {
+                "targets": {
+                    "node": "current"
+                },
+                "modules": false
+            }
+        ]
+    ],
+    "ignore": [
+        "**/__tests__",
+        "**/*.test.js",
+        "**/node_modules"
+    ]
+}

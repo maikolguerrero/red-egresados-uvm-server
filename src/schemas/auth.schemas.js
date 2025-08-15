@@ -9,16 +9,16 @@ const emailSchema = yup.string()
 // Esquema base para contraseña (reutilizable)
 const passwordSchema = yup.string()
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    //   .matches(/[A-Z]/, 'La contraseña debe contener al menos una mayúscula')
-    //   .matches(/[a-z]/, 'La contraseña debe contener al menos una minúscula')
-    //   .matches(/[0-9]/, 'La contraseña debe contener al menos un número')
-    //   .matches(/[^a-zA-Z0-9]/, 'La contraseña debe contener al menos un carácter especial')
+    .matches(/[A-Z]/, 'La contraseña debe contener al menos una mayúscula')
+    .matches(/[a-z]/, 'La contraseña debe contener al menos una minúscula')
+    .matches(/[0-9]/, 'La contraseña debe contener al menos un número')
+    .matches(/[^a-zA-Z0-9]/, 'La contraseña debe contener al menos un carácter especial')
     .required('La contraseña es requerida');
 
 // Esquema para login
 export const loginSchema = yup.object().shape({
     emailOrUsername: yup.string().required('Email o usuario es requerido'),
-    password: passwordSchema
+    password: yup.string().required('La contraseña es requerida')
 });
 
 // Esquema para registro
@@ -133,7 +133,7 @@ export const resendVerificationSchema = yup.object().shape({
 // Esquema para cambio de email
 export const changeEmailSchema = yup.object().shape({
     newEmail: emailSchema,
-    currentPassword: passwordSchema
+    currentPassword: yup.string().required('La contraseña es requerida')
 });
 
 // Esquema para actualización de email y reenvío de verificación

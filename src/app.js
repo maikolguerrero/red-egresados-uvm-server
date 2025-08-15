@@ -4,6 +4,10 @@
  * @requires express
  * @requires http
  * @requires socket.io
+ * @requires https
+ * @requires fs
+ * @requires path
+ * @requires url
  * @requires cors
  * @requires cookie-parser
  * @requires compression
@@ -54,6 +58,10 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import https from 'https';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
@@ -82,6 +90,19 @@ import httpLogger from './utils/httpLogger.js';
 import swaggerDocs from './config/swagger.js';
 
 /**
+ * @constant {string} __filename
+ * @description Nombre del archivo actual
+ */
+const __filename = fileURLToPath(import.meta.url);
+
+/**
+ * @constant {string} __dirname
+ * @description Directorio actual
+ */
+const __dirname = dirname(__filename);
+
+
+/**
  * @constant {boolean} isProduction
  * @description Indica si la aplicación se ejecuta en entorno de producción
  */
@@ -94,25 +115,93 @@ const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
 
 /**
- * @constant {http.Server} httpServer
- * @description Servidor HTTP creado a partir de la app Express
+ * @let {http.Server | https.Server} server
+ * @description Servidor HTTP o HTTPS creado a partir de la app Express
  */
-const httpServer = createServer(app);
+let server;
+const sslEnabled = process.env.HTTPS === 'true';
+
+if (sslEnabled) {
+    try {
+        const httpsOptions = {
+            key: readFileSync(join(__dirname, process.env.SSL_PRIVATE_KEY_PATH)),
+            cert: readFileSync(join(__dirname, process.env.SSL_CERTIFICATE_PATH)),
+            ...(process.env.SSL_CA_BUNDLE_PATH && {
+                ca: readFileSync(join(__dirname, process.env.SSL_CA_BUNDLE_PATH))
+            })
+        };
+
+        server = https.createServer(httpsOptions, app);
+        logger.info('Servidor HTTPS configurado correctamente');
+    } catch (error) {
+        logger.error('Error al configurar HTTPS:', {
+            error: error.message,
+            stack: !isProduction ? error.stack : undefined
+        });
+        process.exit(1);
+    }
+} else {
+    server = createServer(app);
+    logger.info('Servidor HTTP configurado');
+}
+
+/**
+ * @constant {Array} corsOrigins
+ * @description Origenes permitidos para CORS en entorno de desarrollo
+ */
+const corsOrigins = [
+    'http://localhost',
+    'https://localhost',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://192.168.0.106:5173',
+    'http://192.168.3.87:5173',
+    'https://localhost:5173',
+    'https://localhost:5174',
+    'https://localhost:3000',
+    'https://192.168.0.105:3000',
+    'https://192.168.0.105:5173',
+    'https://192.168.0.106:3000',
+    'https://192.168.0.106:5173',
+    'https://192.168.3.87:5173'
+];
 
 /**
  * @constant {socket.io.Server} io
  * @description Instancia de Socket.io configurada
  */
-const io = new Server(httpServer, {
+const io = new Server(server, {
     cors: {
         origin: isProduction
-            ? [process.env.FRONTEND_URL]
-            : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.106:5173'],
-        // origin: isProduction ? [process.env.FRONTEND_URL] : 'http://localhost:5173',/192.168.0.105:5173/
+            ? process.env.FRONTEND_URL
+            : corsOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
 });
+
+/**
+ * @constant {object} corsOptions
+ * @description Configuración CORS con opciones específicas por entorno
+ * @property {Array} origin - URLs permitidas (diferentes en desarrollo/producción)
+ * @property {boolean} credentials - Permite cookies en cross-origin
+ * @property {Array} methods - Métodos HTTP permitidos
+ * @property {Array} allowedHeaders - Headers permitidos
+ * @property {Array} exposedHeaders - Headers expuestos al frontend
+ * @property {number} maxAge - Tiempo de cache para preflight requests (24h)
+ */
+const corsOptions = {
+    origin: isProduction ? [
+        process.env.FRONTEND_URL,
+        // otras URLs de producción
+    ] : corsOrigins,
+    credentials: true, // Permite cookies en cross-origin
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Length', 'X-Request-ID'],
+    maxAge: 86400 // Preflight cache por 24 horas
+};
 
 /**
  * @function compression
@@ -129,11 +218,11 @@ app.use(compression());
  * @property {string} message - Mensaje de error cuando se excede el límite
  */
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 1000,
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    limit: 500, // 500 solicitudes por ventana
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    message: 'Demasiadas peticiones a la API'
+    message: 'Demasiadas peticiones. Por favor, intenta de nuevo más tarde.'
 });
 
 /**
@@ -144,11 +233,11 @@ const apiLimiter = rateLimit({
  * @property {string} message - Mensaje de error cuando se excede el límite
  */
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 500,
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    limit: 100, // 100 solicitudes por ventana
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    message: 'Demasiados intentos de acceso.'
+    message: 'Demasiados intentos de acceso. Por favor, intenta de nuevo más tarde.'
 });
 
 /**
@@ -204,32 +293,6 @@ if (isProduction) {
         next();
     });
 }
-
-/**
- * @constant {object} corsOptions
- * @description Configuración CORS con opciones específicas por entorno
- * @property {Array} origin - URLs permitidas (diferentes en desarrollo/producción)
- * @property {boolean} credentials - Permite cookies en cross-origin
- * @property {Array} methods - Métodos HTTP permitidos
- * @property {Array} allowedHeaders - Headers permitidos
- * @property {Array} exposedHeaders - Headers expuestos al frontend
- * @property {number} maxAge - Tiempo de cache para preflight requests (24h)
- */
-const corsOptions = {
-    origin: isProduction ? [
-        process.env.FRONTEND_URL,
-        // otras URLs de producción
-    ] : [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'http://192.168.0.106:5173'
-    ],
-    credentials: true, // Permite cookies en cross-origin
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Content-Length', 'X-Request-ID'],
-    maxAge: 86400 // Preflight cache por 24 horas
-};
 
 /**
  * @constant {nodemailer.Transporter} transporter
@@ -385,4 +448,4 @@ app.use(notFoundHandler); // Maneja rutas no encontradas
 app.use(globalErrorHandler); // Maneja errores
 
 // Exportar los componentes principales
-export { app, io, httpServer, notificationService, chatService };
+export { app, io, server, notificationService, chatService };

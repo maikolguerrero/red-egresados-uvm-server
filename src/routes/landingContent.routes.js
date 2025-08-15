@@ -122,7 +122,7 @@ export default function landingContentRoutes(fileService, logger) {
         '/carousel/media',
         authenticate,
         authorize('admin', 'superadmin'),
-        fileService.getValidationMiddleware('file', { maxSize: 50 }),
+        fileService.getValidationMiddleware('file', { maxSize: 10 }),
         contentController.uploadCarouselMedia
     );
 

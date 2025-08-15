@@ -23,7 +23,7 @@ export const socketAuthenticate = async (socket, next) => {
 
         if (!token) {
             throw new AppError(
-                'Token no proporcionado',
+                'Sesión expirada',
                 401,
                 'MISSING_AUTH_TOKEN',
                 {
@@ -85,25 +85,27 @@ export const socketAuthenticate = async (socket, next) => {
 
         next();
     } catch (error) {
-        logger.error('Error en autenticación de socket:', {
-            context: 'socket-auth',
-            error: error.message,
-            socketId: socket.id,
-            stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-        });
+        if (process.env.NODE_ENV !== 'production') {
+            logger.error('Error en autenticación de socket:', {
+                context: 'socket-auth',
+                error: error.message,
+                socketId: socket.id,
+                stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+            });
+        }
 
         // Manejo específico de errores JWT
         if (error instanceof jwt.JsonWebTokenError) {
             if (error.name === 'TokenExpiredError') {
                 error = new AppError(
-                    'Token expirado',
+                    'Sesión expirada',
                     401,
                     'TOKEN_EXPIRED',
                     { context: 'socket-auth' }
                 );
             } else {
                 error = new AppError(
-                    'Token inválido',
+                    'Sesión expirada',
                     401,
                     'INVALID_TOKEN',
                     { context: 'socket-auth' }
