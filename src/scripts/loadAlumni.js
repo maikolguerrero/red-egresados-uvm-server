@@ -1,3 +1,32 @@
+/**
+ * @fileoverview Script para carga masiva de datos de egresados desde un archivo CSV
+ * @module scripts/loadAlumni
+ * @requires mongoose
+ * @requires dotenv
+ * @requires ../config/db
+ * @requires ../models/Alumni
+ * @requires fs
+ * @requires readline
+ * @requires ../config/logger
+ * 
+ * @description 
+ * Este script realiza las siguientes funciones:
+ * 1. Conecta a la base de datos MongoDB usando variables de entorno
+ * 2. Lee un archivo CSV con datos de egresados
+ * 3. Valida y procesa los registros en lotes
+ * 4. Inserta los datos en la colección Alumni
+ * 5. Genera estadísticas detalladas del proceso
+ * 
+ * @example
+ * // Ejecución desde línea de comandos:
+ * node src/scripts/loadAlumni.js
+ * 
+ * // Requiere variables de entorno en .env:
+ * CSV_PATH=./data/egresados.csv
+ * BATCH_SIZE=500
+ * REPORT_INTERVAL=1000
+ */
+
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import connectDB from '../config/db.js';
@@ -8,19 +37,45 @@ import logger from '../config/logger.js';
 
 dotenv.config();
 
+/**
+ * @constant {boolean} isProduction
+ * @description Indica si el script se ejecuta en entorno de producción
+ */
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Configurar logger específico para este script
+/**
+ * @constant {object} scriptLogger
+ * @description Logger específico para este script con contexto adicional
+ */
 const scriptLogger = logger.child({ module: 'loadAlumniScript' });
 
-// Configuración de conexión mejorada
+/**
+ * @constant {object} connectionOptions
+ * @description Opciones de conexión mejoradas para MongoDB
+ * @property {number} serverSelectionTimeoutMS - Tiempo de espera para selección de servidor (60s)
+ * @property {number} socketTimeoutMS - Tiempo de espera de socket (120s)
+ * @property {number} maxPoolSize - Tamaño máximo del pool de conexiones (100)
+ */
 const connectionOptions = {
     serverSelectionTimeoutMS: 60000,
     socketTimeoutMS: 120000,
     maxPoolSize: 100
 };
 
-// Estadísticas detalladas con más métricas
+/**
+ * @constant {object} stats
+ * @description Estadísticas detalladas del proceso de carga
+ * @property {Date} startTime - Marca de tiempo de inicio
+ * @property {number} totalLines - Total de líneas procesadas
+ * @property {number} processed - Registros procesados exitosamente
+ * @property {number} inserted - Registros insertados en la base de datos
+ * @property {number} validationErrors - Errores de validación
+ * @property {number} duplicates - Registros duplicados
+ * @property {number} otherErrors - Otros tipos de errores
+ * @property {number} batchesProcessed - Lotes procesados
+ * @property {number} individualRetries - Registros procesados individualmente
+ * @property {Array} errorDetails - Detalles de errores encontrados
+ */
 const stats = {
     startTime: new Date(),
     totalLines: 0,
@@ -34,7 +89,15 @@ const stats = {
     errorDetails: []
 };
 
-// Función para validar un registro contra el esquema
+/**
+ * @function validateRecord
+ * @async
+ * @description Valida un registro contra el esquema Alumni
+ * @param {object} record - Objeto con datos del egresado
+ * @returns {Promise<object>} Resultado de validación
+ * @returns {boolean} result.valid - Indica si el registro es válido
+ * @returns {object} [result.errors] - Errores de validación (si existen)
+ */
 async function validateRecord(record) {
     try {
         const alumni = new Alumni(record);
@@ -48,7 +111,13 @@ async function validateRecord(record) {
     }
 }
 
-// Función principal
+/**
+ * @function loadAlumniData
+ * @async
+ * @description Función principal que orquesta el proceso de carga
+ * @throws {Error} Si no se encuentra la variable CSV_PATH
+ * @throws {Error} Si ocurre un error crítico durante el proceso
+ */
 async function loadAlumniData() {
     try {
         scriptLogger.info('Iniciando carga de datos de egresados', {
@@ -156,11 +225,17 @@ async function loadAlumniData() {
     }
 }
 
-// Función para procesar lotes con logging detallado
+/**
+ * @function processBatch
+ * @async
+ * @description Procesa un lote de registros usando inserción masiva
+ * @param {Array} batch - Array de registros a procesar
+ * @param {number} batchSize - Tamaño del lote
+ */
 async function processBatch(batch, batchSize) {
     try {
         scriptLogger.debug(`Procesando lote de ${batchSize} registros`);
-        
+
         const result = await Alumni.insertMany(batch, {
             ordered: false,
             rawResult: true
@@ -200,7 +275,12 @@ async function processBatch(batch, batchSize) {
     }
 }
 
-// Función para insertar registros individualmente
+/**
+ * @function insertOneByOne
+ * @async
+ * @description Inserta registros individualmente como fallback
+ * @param {Array} records - Registros a insertar
+ */
 async function insertOneByOne(records) {
     scriptLogger.debug('Iniciando inserción individual de registros', {
         recordsToProcess: records.length
@@ -248,7 +328,11 @@ async function insertOneByOne(records) {
     }
 }
 
-// Función para mostrar estadísticas finales
+/**
+ * @function logFinalStats
+ * @async
+ * @description Registra estadísticas finales del proceso
+ */
 async function logFinalStats() {
     const duration = (new Date() - stats.startTime) / 1000;
     const recordsPerSecond = (stats.processed / duration).toFixed(2);
@@ -288,7 +372,13 @@ async function logFinalStats() {
     }
 }
 
-// Funciones auxiliares (parseCSVLine y parseDate se mantienen igual)
+/**
+ * @function parseCSVLine
+ * @description Parsea una línea CSV a objeto Alumni
+ * @param {string} line - Línea del archivo CSV
+ * @returns {object} Objeto con estructura Alumni
+ * @throws {Error} Si faltan campos obligatorios
+ */
 function parseCSVLine(line) {
     const values = line.split(',').map(v => v.trim());
 
@@ -310,6 +400,13 @@ function parseCSVLine(line) {
     };
 }
 
+/**
+ * @function parseCSVLine
+ * @description Parsea una línea CSV a objeto Alumni
+ * @param {string} line - Línea del archivo CSV
+ * @returns {object} Objeto con estructura Alumni
+ * @throws {Error} Si faltan campos obligatorios
+ */
 function parseDate(dateStr) {
     if (!dateStr) return null;
     const date = new Date(dateStr);

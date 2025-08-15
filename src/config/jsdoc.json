@@ -1,0 +1,19 @@
+{
+  "source": {
+    "include": [
+      "src"
+    ],
+    "exclude": [
+      "node_modules",
+      "docs"
+    ]
+  },
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "opts": {
+    "destination": "./src/docs/jsdoc",
+    "recurse": true,
+    "readme": "./README.md"
+  }
+}

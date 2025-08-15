@@ -1,8 +1,43 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { AppError } from './error/index.js';
+import AppError from './AppError.js';
 
-// Middleware para autenticación
+/**
+ * @fileoverview Middlewares de autenticación y autorización JWT
+ * @module middlewares/auth.middleware
+ * @requires jsonwebtoken - Para verificación de tokens
+ * @requires ../models/User - Modelo de usuario
+ * @requires ./AppError - Clase de errores personalizados
+ * 
+ * @description  
+ * Middlewares para:
+ * - Autenticación con JWT (cookie o header)  
+ * - Control de acceso basado en roles  
+ * - Protección de rutas con manejo de errores detallado
+ */
+
+/**
+ * Middleware de autenticación JWT
+ * @function authenticate
+ * @async
+ * @param {Object} req - Objeto de petición Express
+ * @param {Object} req.cookies - Cookies HTTP-Only
+ * @param {string} [req.cookies.accessToken] - Token JWT en cookie
+ * @param {Object} req.headers - Headers HTTP
+ * @param {string} [req.headers.authorization] - Header Authorization (Bearer)
+ * @param {Object} res - Objeto de respuesta Express
+ * @param {Function} next - Función next de Express
+ * 
+ * @throws {AppError} 
+ * - 401 Si no hay token (MISSING_AUTH_TOKEN)
+ * - 401 Si token es inválido/vencido (INVALID_TOKEN/TOKEN_EXPIRED)
+ * - 401 Si usuario no existe (USER_NOT_FOUND)
+ * - 403 Si cuenta está inactiva (ACCOUNT_DISABLED)
+ * 
+ * @example
+ * // Uso en rutas:
+ * router.get('/ruta-protegida', authenticate, (req, res) => {...});
+ */
 export const authenticate = async (req, res, next) => {
     try {
         let accessToken;
@@ -20,7 +55,7 @@ export const authenticate = async (req, res, next) => {
 
         if (!accessToken) {
             throw new AppError(
-                'No autorizado - Token no proporcionado',
+                'No autorizado',
                 401,
                 'MISSING_AUTH_TOKEN',
                 {
@@ -110,7 +145,42 @@ export const authenticate = async (req, res, next) => {
     }
 };
 
-// Middleware para autorización
+/**
+ * @fileoverview Middlewares de autenticación y autorización JWT
+ * @module middlewares/auth.middleware
+ * @requires jsonwebtoken - Para verificación de tokens
+ * @requires ../models/User - Modelo de usuario
+ * @requires ./AppError - Clase de errores personalizados
+ * 
+ * @description  
+ * Middlewares para:
+ * - Autenticación con JWT (cookie o header)  
+ * - Control de acceso basado en roles  
+ * - Protección de rutas con manejo de errores detallado
+ */
+
+/**
+ * Middleware de autenticación JWT
+ * @function authenticate
+ * @async
+ * @param {Object} req - Objeto de petición Express
+ * @param {Object} req.cookies - Cookies HTTP-Only
+ * @param {string} [req.cookies.accessToken] - Token JWT en cookie
+ * @param {Object} req.headers - Headers HTTP
+ * @param {string} [req.headers.authorization] - Header Authorization (Bearer)
+ * @param {Object} res - Objeto de respuesta Express
+ * @param {Function} next - Función next de Express
+ * 
+ * @throws {AppError} 
+ * - 401 Si no hay token (MISSING_AUTH_TOKEN)
+ * - 401 Si token es inválido/vencido (INVALID_TOKEN/TOKEN_EXPIRED)
+ * - 401 Si usuario no existe (USER_NOT_FOUND)
+ * - 403 Si cuenta está inactiva (ACCOUNT_DISABLED)
+ * 
+ * @example
+ * // Uso en rutas:
+ * router.get('/ruta-protegida', authenticate, (req, res) => {...});
+ */
 export const authorize = (...roles) => {
     return (req, res, next) => {
         if (!roles.includes(req.user.role)) {

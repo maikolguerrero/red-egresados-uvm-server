@@ -1,7 +1,30 @@
 import logger from '../config/logger.js';
 
 /**
- * Middleware para manejar rutas no encontradas (404)
+ * @fileoverview Middlewares para manejo centralizado de errores
+ * @module middlewares/errorHandler
+ * @requires ../config/logger - Logger personalizado
+ * 
+ * @description  
+ * Sistema de manejo de errores con:
+ * - Detección automática de tipos de error (validación, seguridad, etc.)  
+ * - Logging contextualizado por categorías  
+ * - Respuestas adaptativas por entorno (dev/prod)  
+ * - Soporte para request tracing (requestId)  
+ * - Protección de información sensible en producción
+ */
+
+/**
+ * Middleware para rutas no encontradas (404)
+ * @function notFoundHandler
+ * @param {Object} req - Objeto de petición Express
+ * @param {string} req.originalUrl - URL solicitada
+ * @param {Object} res - Objeto de respuesta Express
+ * @param {Function} next - Función next de Express
+ * 
+ * @example
+ * // Uso al final de las rutas:
+ * app.use(notFoundHandler);
  */
 export const notFoundHandler = (req, res, next) => {
     const error = new Error(`Ruta no encontrada: ${req.originalUrl}`);
@@ -11,7 +34,29 @@ export const notFoundHandler = (req, res, next) => {
 };
 
 /**
- * Middleware principal para manejo de errores
+ * Middleware global para manejo de errores
+ * @function globalErrorHandler
+ * @param {Error|AppError} err - Error capturado
+ * @param {Object} req - Objeto de petición Express
+ * @param {Object} res - Objeto de respuesta Express
+ * @param {Function} next - Función next de Express
+ * 
+ * @description  
+ * Clasifica errores en categorías:
+ * 1. **Errores de servidor (500+)** - Log nivel error  
+ * 2. **Errores de seguridad (401/403)** - Log nivel warn  
+ * 3. **Errores de validación** - Log detallado  
+ * 4. **Otros errores de cliente (400-499)** - Log básico  
+ * 
+ * @returns {Object} Respuesta JSON estructurada:
+ * - success: false  
+ * - message: Descripción segura por entorno  
+ * - [errorCode]: Código identificativo (dev)  
+ * - [metadata]: Datos adicionales (dev)  
+ * 
+ * @example
+ * // Uso después de todas las rutas:
+ * app.use(globalErrorHandler);
  */
 export const globalErrorHandler = (err, req, res, next) => {
     const statusCode = err.status || err.statusCode || 500;
@@ -86,9 +131,10 @@ export const globalErrorHandler = (err, req, res, next) => {
         if (err.errorCode) response.errorCode = err.errorCode;
         if (err.metadata) response.metadata = err.metadata;
         if (isValidationError && err.errors) response.errors = err.errors;
-    } else if (isValidationError) {
+    } else {
         // En producción, solo indicar que hubo errores de validación
-        response.message = 'Error en los datos enviados';
+        response.metadata = { errors: err.metadata.errors };
+        // response.message = 'Error en los datos enviados';
     }
 
     // Respuesta especial para errores de autenticación en producción

@@ -9,9 +9,10 @@ const emailSchema = yup.string()
 // Esquema base para contraseña (reutilizable)
 const passwordSchema = yup.string()
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    //   .matches(/[A-Z]/, 'Debe contener al menos una mayúscula')
-    //   .matches(/[a-z]/, 'Debe contener al menos una minúscula')
-    //   .matches(/[0-9]/, 'Debe contener al menos un número')
+    //   .matches(/[A-Z]/, 'La contraseña debe contener al menos una mayúscula')
+    //   .matches(/[a-z]/, 'La contraseña debe contener al menos una minúscula')
+    //   .matches(/[0-9]/, 'La contraseña debe contener al menos un número')
+    //   .matches(/[^a-zA-Z0-9]/, 'La contraseña debe contener al menos un carácter especial')
     .required('La contraseña es requerida');
 
 // Esquema para login
@@ -25,7 +26,25 @@ const usernameSchema = yup.string()
     .min(4, 'El usuario debe tener al menos 4 caracteres')
     .max(20, 'El usuario no puede exceder 20 caracteres')
     .matches(/^[a-z0-9_]+$/, 'Solo letras minúsculas, números y guiones bajos')
+    .transform(value => value.toLowerCase())
     .required('El nombre de usuario es requerido');
+
+export const usernameParamSchema = yup.object().shape({
+    username: usernameSchema
+});
+
+// Esquema para listado de administradores
+export const adminListSchema = yup.object().shape({
+    // search: yup.string(),
+    search: yup.string()
+        .transform(value => value ? value.trim() : value)
+        .max(100, 'La búsqueda no puede exceder 100 caracteres'),
+    isActive: yup.boolean(),
+    page: yup.number().min(1).default(1),
+    limit: yup.number().min(1).max(100).default(10),
+    sort: yup.string().oneOf(['username', 'fullName', 'email', 'lastLogin', 'createdAt']).default('username'),
+    order: yup.string().oneOf(['asc', 'desc']).default('asc')
+});
 
 // Esquema para registro
 const registerSchema = {
@@ -50,35 +69,13 @@ const dateSchema = yup.date()
 // Esquema para registro de egresados
 export const alumniRegistrationSchema = yup.object().shape({
     // Datos personales
-    idNumber: yup.string()
+    cedula: yup.string()
         .matches(/^[VE]-\d+$/, 'Formato cédula inválido (Ej: V-12345678)')
         .required('La cédula es requerida'),
-    firstName: yup.string()
+    nombreCompleto: yup.string()
         .min(2, 'El nombre debe tener al menos 2 caracteres')
-        .max(50, 'El nombre no puede exceder 50 caracteres')
+        .max(100, 'El nombre no puede exceder 100 caracteres')
         .required('El nombre es requerido'),
-    lastName: yup.string()
-        .min(2, 'El apellido debe tener al menos 2 caracteres')
-        .max(50, 'El apellido no puede exceder 50 caracteres'),
-    birthDate: dateSchema.required('La fecha de nacimiento es requerida'),
-    // Datos académicos
-    studentId: yup.string().required('Número de expediente requerido'),
-    degree: yup.string()
-        .oneOf([
-            'Licenciatura en Administración de Empresas',
-            'Licenciatura en Contaduría Pública',
-            'Ingeniería de Computación',
-            'Ingeniería Industrial',
-            'Derecho',
-            'Ciencias Políticas y Administrativas'
-        ], 'Carrera no válida')
-        .required('La carrera es requerida'),
-    graduationDate: dateSchema.required('La fecha de graduación es requerida'),
-    mention: yup.string()
-        .max(100, 'La mención no puede exceder 100 caracteres')
-        .nullable(),
-    // Contacto
-    location: yup.string().max(100, 'La ubicación no puede exceder 100 caracteres'),
     // Registro
     ...registerSchema
 });
@@ -87,7 +84,7 @@ export const alumniRegistrationSchema = yup.object().shape({
 export const adminRegisterSchema = yup.object().shape({
     ...registerSchema,
     fullName: yup.string()
-        .min(5, 'El nombre completo debe tener al menos 5 caracteres')
+        .min(1, 'El nombre completo debe tener al menos 1 caracter')
         .max(100, 'El nombre completo no puede exceder 100 caracteres')
         // .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, 'Solo se permiten letras y espacios')
         .transform(value => value.replace(/\s+/g, ' ').trim())
@@ -131,4 +128,30 @@ export const resendVerificationSchema = yup.object().shape({
     email: yup.string()
         .email('Ingrese un email válido')
         .required('El email es requerido')
+});
+
+// Esquema para cambio de email
+export const changeEmailSchema = yup.object().shape({
+    newEmail: emailSchema,
+    currentPassword: passwordSchema
+});
+
+// Esquema para actualización de email y reenvío de verificación
+export const updateEmailAndResendVerificationSchema = yup.object().shape({
+    emailOrUsername: yup.string()
+        .required('Email o nombre de usuario es requerido')
+        .test(
+            'is-email-or-username',
+            'Debe ser un email válido o un nombre de usuario (4-20 caracteres alfanuméricos)',
+            function (value) {
+                const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+                const usernameValid = /^[a-z0-9_]{4,20}$/.test(value);
+                return emailValid || usernameValid;
+            }
+        ),
+    newEmail: emailSchema.notOneOf(
+        [yup.ref('emailOrUsername')],
+        'El nuevo email debe ser diferente al actual'
+    ),
+    password: passwordSchema
 });

@@ -1,26 +1,82 @@
+/**
+ * @fileoverview Controlador para operaciones de autenticación (login, registro, tokens)
+ * @module controllers/auth.controller
+ * @requires bcrypt
+ * @requires jsonwebtoken
+ * @requires ../models/EgresadoPregrado
+ * @requires ../models/EgresadoPostgrado
+ * @requires ../models/User
+ * @requires ../models/UserProfile
+ * @requires ../models/RefreshToken
+ * @requires ../models/TokenBlacklist
+ * @requires AppError
+ */
+
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import Alumni from '../models/Alumni.js';
+import EgresadoPregrado from '../models/EgresadoPregrado.js';
+import EgresadoPostgrado from '../models/EgresadoPostgrado.js';
 import User from '../models/User.js';
+import UserProfile from '../models/UserProfile.js';
 import RefreshToken from '../models/RefreshToken.js';
 import TokenBlacklist from '../models/TokenBlacklist.js';
-import { AppError } from '../middlewares/error/index.js';
+import AppError from '../middlewares/AppError.js';
 import dotenv from 'dotenv';
+import { date } from 'yup';
 
 // Cargar variables de entorno
 dotenv.config();
 
+/**
+ * @classdesc Controlador para operaciones relacionadas con autenticación
+ * @class AuthController
+ * 
+ * @description
+ * Maneja todas las operaciones relacionadas con:
+ * - Registro
+ * - Login
+ * - Generación de tokens
+ * 
+ * @example
+ * // Uso típico en rutas:
+ * const authController = new AuthController();
+ * router.post('/register', authController.registerAlumni);
+ */
 export default class AuthController {
+
+    /**
+     * @description Crea una instancia del controlador de autenticación
+     * @param {EmailService} emailService - Servicio de envío de emails
+     * @example
+     * const emailService = new EmailService();
+     * const authController = new AuthController(emailService);
+     */
     constructor(emailService) {
         this.emailService = emailService;
     }
 
     /**
-     * Método para generar tokens JWT
+     * @private
+     * @method _generateToken
+     * @description Genera un par de tokens JWT (access y refresh)
+     * @param {string} userId - ID del usuario
+     * @param {string} role - Rol del usuario
+     * @returns {Object} Objeto con accessToken y refreshToken
+     * @throws {Error} Si faltan userId o role
      */
     _generateToken(userId, role) {
         if (!userId || !role) {
-            throw new Error('Missing required fields for token generation');
+            throw new AppError(
+                'Faltan campos obligatorios para generar el token',
+                404,
+                'TOKEN_GENERATION_ERROR',
+                {
+                    action: 'token_generation',
+                    userId,
+                    role,
+                    context: 'security'
+                }
+            );
         }
 
         const accessToken = jwt.sign(
@@ -39,7 +95,17 @@ export default class AuthController {
     }
 
     /**
-     * Registro de egresados (con validación contra datos precargados)
+     * @method
+     * @async
+     * @description Registra un nuevo egresado validando contra datos precargados
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si no se encuentra el egresado en registros precargados
+     *  - 409 si el egresado ya está registrado o el username existe
+     *  - 500 si falla el envío del email de verificación
      */
     registerAlumni = async (req, res, next) => {
         try {
@@ -47,57 +113,43 @@ export default class AuthController {
                 studentId: req.body.studentId,
                 ip: req.ip
             });
-            const { idNumber, studentId, firstName, lastName, birthDate, degree, graduationDate, email, username, password } = req.body;
+            const { cedula, nombreCompleto, username, email, password } = req.body;
 
-            // Verificar datos contra los registros precargados
-            const alumni = await Alumni.findOne({
-                idNumber,
-                studentId,
-                firstName: { $regex: new RegExp(`^${firstName}$`, 'i') },
-                lastName: { $regex: new RegExp(`^${lastName}$`, 'i') },
-                email: { $regex: new RegExp(`^${email}$`, 'i') },
-                degree,
-                graduationDate: {
-                    $gte: new Date(new Date(graduationDate).setHours(0, 0, 0, 0)),
-                    $lte: new Date(new Date(graduationDate).setHours(23, 59, 59, 999))
-                },
-                birthDate: {
-                    $gte: new Date(new Date(birthDate).setHours(0, 0, 0, 0)),
-                    $lte: new Date(new Date(birthDate).setHours(23, 59, 59, 999))
-                }
-            });
+            // Verificar en pregrado y postgrado
+            const [pregrado, postgrado] = await Promise.all([
+                EgresadoPregrado.findOne({
+                    cedula,
+                    nombreCompleto: { $regex: new RegExp(`^${nombreCompleto}$`, 'i') }
+                }),
+                EgresadoPostgrado.findOne({
+                    cedula,
+                    nombreCompleto: { $regex: new RegExp(`^${nombreCompleto}$`, 'i') }
+                })
+            ]);
 
-            if (!alumni) {
-                throw new AppError(
-                    'No se encontró coincidencia con nuestros registros de egresados',
-                    404,
-                    'ALUMNI_NOT_FOUND',
-                    {
-                        action: 'register_validation',
-                        idNumber: req.body.idNumber,
-                        studentId: req.body.studentId,
-                        ip: req.ip,
-                        context: 'security' // Importante para seguimiento
-                    }
-                );
+            if (!pregrado && !postgrado) {
+                throw new AppError('No se encontró coincidencia con nuestros registros', 404);
             }
 
-            if (alumni.isRegistered) {
+            // Validar unicidad del cédula
+            const existingUserCedula = await User.findOne({ cedula });
+            if (existingUserCedula) {
                 throw new AppError(
-                    'Este egresado ya tiene una cuenta registrada',
+                    'El egresado ya está registrado',
                     409,
-                    'ALUMNI_ALREADY_REGISTERED',
+                    'CEDULA_TAKEN',
                     {
-                        action: 'register_duplicate',
-                        alumniId: alumni._id,
-                        ip: req.ip
+                        action: 'register_cedula_conflict',
+                        cedula,
+                        ip: req.ip,
+                        context: 'validation'
                     }
                 );
             }
 
             // Validar unicidad del username
-            const existingUser = await User.findOne({ username });
-            if (existingUser) {
+            const existingUserUsername = await User.findOne({ username });
+            if (existingUserUsername) {
                 throw new AppError(
                     'El nombre de usuario ya está registrado',
                     409,
@@ -105,6 +157,22 @@ export default class AuthController {
                     {
                         action: 'register_username_conflict',
                         username,
+                        ip: req.ip,
+                        context: 'validation'
+                    }
+                );
+            }
+
+            // Validar unicidad del correo
+            const existingUserEmail = await User.findOne({ email });
+            if (existingUserEmail) {
+                throw new AppError(
+                    'El correo electrónico ya está registrado',
+                    409,
+                    'EMAIL_TAKEN',
+                    {
+                        action: 'register_email_conflict',
+                        email,
                         ip: req.ip,
                         context: 'validation'
                     }
@@ -120,7 +188,7 @@ export default class AuthController {
 
             // Crear usuario (sin activar)
             const user = await User.create({
-                alumni: alumni._id,
+                cedula,
                 username,
                 email,
                 password: hashedPassword,
@@ -128,18 +196,34 @@ export default class AuthController {
                 isVerified: false,
                 isActive: false,
                 verificationToken,
-                verificationTokenExpires
+                verificationTokenExpires,
+                // Asignar las relaciones
+                ...(pregrado && { pregrado: [pregrado._id] }),
+                ...(postgrado && { postgrado: [postgrado._id] })
             });
 
-            // Actualizar registro del egresado
-            alumni.isRegistered = true;
-            alumni.registrationDate = new Date();
-            await alumni.save();
+            // Actualizar los registros de egresados con el usuario
+            if (pregrado) {
+                pregrado.user = user._id;
+                await pregrado.save();
+            }
+
+            if (postgrado) {
+                postgrado.user = user._id;
+                await postgrado.save();
+            }
+
+            // Crear perfil del usuario
+            const newProfile = await UserProfile.create({
+                user: user._id
+            });
+
+            // Actualizar el usuario con la referencia al perfil
+            await User.findByIdAndUpdate(user._id, { profile: newProfile._id });
 
             // Éxito (logger solo para confirmación)
             req.logger.info('Egresado registrado', {
-                userId: user._id,
-                alumniId: alumni._id
+                userId: user._id
             });
 
             // Enviar email de verificación
@@ -176,8 +260,19 @@ export default class AuthController {
     }
 
     /**
-    * Reenvío de correo de verificación
-    */
+     * @method
+     * @async
+     * @description Reenvía el correo de verificación a usuarios no verificados
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.email - Email a verificar
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 404 si el usuario no existe
+     *  - 400 si la cuenta ya está verificada
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
+     */
     resendVerificationEmail = async (req, res, next) => {
         try {
             const { email } = req.body;
@@ -281,8 +376,198 @@ export default class AuthController {
     }
 
     /**
-    * Verificación de email
-    */
+     * @method
+     * @async
+     * @description Actualiza el email de un usuario no verificado (identificado por email o username) y reenvía el correo de verificación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si la cuenta ya está verificada
+     *  - 401 si la contraseña es incorrecta
+     *  - 404 si el usuario no existe
+     *  - 409 si el nuevo email ya está en uso
+     *  - 429 si se excede el límite de intentos de verificación
+     */
+    updateEmailAndResendVerification = async (req, res, next) => {
+        try {
+            const { emailOrUsername, newEmail, password } = req.body;
+
+            req.logger.debug('Inicio de actualización de email no verificado', {
+                emailOrUsername,
+                newEmail,
+                ip: req.ip
+            });
+
+            // Determinar si el identificador es un email o username
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrUsername);
+
+            // Buscar usuario por email o username
+            const user = await User.findOne({
+                $or: [
+                    isEmail
+                        ? { email: emailOrUsername }
+                        : { username: emailOrUsername.toLowerCase() },
+                ],
+                isVerified: false // Solo para cuentas no verificadas
+            }).select('+password +verificationAttempts +lastVerificationAttempt');
+
+            if (!user) {
+                throw new AppError(
+                    'Usuario no encontrado o cuenta ya verificada',
+                    404,
+                    'USER_NOT_FOUND_OR_VERIFIED',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        emailOrUsername,
+                        isEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no sea igual al actual
+            if (newEmail.toLowerCase() === user.email.toLowerCase()) {
+                throw new AppError(
+                    'El nuevo email debe ser diferente al actual',
+                    400,
+                    'SAME_EMAIL',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        userId: user._id,
+                        currentEmail: user.email,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar contraseña
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                throw new AppError(
+                    'Contraseña incorrecta',
+                    401,
+                    'INVALID_PASSWORD',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'security',
+                        userId: user._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no esté en uso
+            const emailExists = await User.findOne({ email: newEmail });
+            if (emailExists) {
+                throw new AppError(
+                    'El nuevo email ya está en uso',
+                    409,
+                    'EMAIL_ALREADY_EXISTS',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'validation',
+                        userId: user._id,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar límite de intentos de verificación (3 cada 24 horas)
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+            if (user.verificationAttempts >= 3 && user.lastVerificationAttempt > oneDayAgo) {
+                throw new AppError(
+                    'Límite de intentos excedido. Por favor espera 24 horas.',
+                    429,
+                    'VERIFICATION_LIMIT_EXCEEDED',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'security',
+                        userId: user._id,
+                        attempts: user.verificationAttempts,
+                        lastAttempt: user.lastVerificationAttempt,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Generar nuevo token de verificación
+            const verificationToken = this.emailService.generateVerificationToken();
+            const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+            // Actualizar usuario con nuevo email y token
+            const oldEmail = user.email;
+            user.email = newEmail.toLowerCase();
+            user.verificationToken = verificationToken;
+            user.verificationTokenExpires = verificationTokenExpires;
+            user.verificationAttempts += 1;
+            user.lastVerificationAttempt = now;
+            await user.save();
+
+            // Enviar email de verificación al nuevo correo
+            const emailResult = await this.emailService.sendVerificationEmail(newEmail, verificationToken);
+
+            if (!emailResult.success) {
+                // Revertir cambios si falla el envío del email
+                user.email = oldEmail;
+                await user.save();
+
+                throw new AppError(
+                    'No se pudo enviar el email de verificación. Por favor intenta nuevamente.',
+                    500,
+                    'EMAIL_SEND_FAILURE',
+                    {
+                        action: 'update_unverified_email',
+                        context: 'email_service',
+                        userId: user._id,
+                        newEmail,
+                        error: emailResult.error,
+                        isCritical: true
+                    }
+                );
+            }
+
+            req.logger.info('Email no verificado actualizado y correo reenviado', {
+                userId: user._id,
+                oldEmail,
+                newEmail,
+                attempts: user.verificationAttempts,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Email actualizado. Se ha enviado un nuevo correo de verificación.',
+                data: {
+                    userId: user._id,
+                    newEmail: user.email
+                }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Verifica una cuenta de usuario mediante token
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.validatedQuery.token - Token de verificación
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     */
     verifyEmail = async (req, res, next) => {
         try {
             const { token } = req.validatedQuery;
@@ -340,7 +625,16 @@ export default class AuthController {
     }
 
     /**
-     * Registro de administradores (sin vinculación a Alumni)
+     * @method
+     * @async
+     * @description Registra un nuevo administrador (requiere rol superadmin)
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 403 si el solicitante no es administrador
+     *  - 409 si el username o email ya existen
      */
     registerAdmin = async (req, res, next) => {
         try {
@@ -352,36 +646,34 @@ export default class AuthController {
                 ip: req.ip
             });
 
-            // Solo administradores pueden crear otros administradores
-            if (req.user?.role !== 'admin') {
+            // Validar unicidad del username
+            const existingUserUsername = await User.findOne({ username });
+            if (existingUserUsername) {
                 throw new AppError(
-                    'No autorizado para crear administradores',
-                    403,
-                    'ADMIN_CREATION_UNAUTHORIZED',
+                    'El nombre de usuario ya está registrado',
+                    409,
+                    'USERNAME_TAKEN',
                     {
                         action: 'admin_registration',
-                        context: 'security',
-                        attemptingUser: req.user?._id,
-                        ip: req.ip
+                        username,
+                        ip: req.ip,
+                        context: 'validation'
                     }
                 );
             }
 
-            // Verificar unicidad
-            const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-            if (existingUser) {
+            // Validar unicidad del correo
+            const existingUserEmail = await User.findOne({ email });
+            if (existingUserEmail) {
                 throw new AppError(
-                    'El nombre de usuario o email ya están registrados',
+                    'El correo electrónico ya está registrado',
                     409,
-                    'USER_ALREADY_EXISTS',
+                    'EMAIL_TAKEN',
                     {
                         action: 'admin_registration',
-                        conflictFields: {
-                            username: existingUser.username === username,
-                            email: existingUser.email === email
-                        },
-                        existingUserId: existingUser._id,
-                        requestedBy: req.user?._id
+                        email,
+                        ip: req.ip,
+                        context: 'validation'
                     }
                 );
             }
@@ -412,8 +704,13 @@ export default class AuthController {
                 data: {
                     id: user._id,
                     username: user.username,
+                    email: user.email,
+                    fullName: user.fullName,
                     role: user.role,
-                    fullName: user.fullName
+                    profilePicture: user.profilePicture,
+                    isActive: user.isActive,
+                    lastLogin: user.lastLogin,
+                    createdAt: user.createdAt
                 }
             });
 
@@ -423,7 +720,229 @@ export default class AuthController {
     }
 
     /**
-     * Login
+     * @method
+     * @async
+     * @description Obtiene la lista de administradores con paginación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados paginados
+     */
+    /**
+     * @method
+     * @async
+     * @description Obtiene la lista de administradores con paginación
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON con resultados paginados
+     */
+    getAdmins = async (req, res, next) => {
+        try {
+            const { search, isActive, page = 1, limit = 10, sort = 'username', order = 'asc' } = req.query;
+            const skip = (page - 1) * limit;
+            const sortOrder = order === 'desc' ? -1 : 1;
+
+            req.logger.debug('Inicio obtención de lista de administradores', {
+                ip: req.ip,
+                queryParams: req.query
+            });
+
+            // Construir filtro base
+            const filter = {
+                role: { $in: ['admin', 'superadmin'] }
+            };
+
+            // Aplicar filtro de búsqueda
+            if (search) {
+                const searchRegex = new RegExp(search, 'i');
+                filter.$or = [
+                    { fullName: { $regex: searchRegex } },
+                    { username: { $regex: searchRegex } },
+                    { email: { $regex: searchRegex } }
+                ];
+            }
+
+            // Aplicar filtro de estado
+            if (isActive !== undefined) {
+                filter.isActive = isActive === 'true';
+            }
+
+            // Validar campo de ordenamiento
+            const validSortFields = ['username', 'fullName', 'email', 'lastLogin', 'createdAt'];
+            const sortField = validSortFields.includes(sort) ? sort : 'username';
+
+            // Obtener total y resultados
+            const [total, admins] = await Promise.all([
+                User.countDocuments(filter),
+                User.find(filter)
+                    .select('-password -__v -verificationToken -resetPasswordToken')
+                    .sort({ [sortField]: sortOrder })
+                    .skip(skip)
+                    .limit(parseInt(limit))
+            ]);
+
+            // Formatear respuesta
+            res.json({
+                success: true,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit),
+                    limit: parseInt(limit)
+                },
+                data: admins.map(admin => ({
+                    id: admin._id,
+                    username: admin.username,
+                    email: admin.email,
+                    fullName: admin.fullName,
+                    role: admin.role,
+                    profilePicture: admin.profilePicture,
+                    isActive: admin.isActive,
+                    lastLogin: admin.lastLogin,
+                    createdAt: admin.createdAt
+                }))
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Elimina un administrador por username (solo para superadmins)
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.params.username - Username del administrador a eliminar
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si se intenta auto-eliminar o eliminar superadmin
+     *  - 403 si no tiene permisos
+     *  - 404 si el admin no existe
+     */
+    deleteAdmin = async (req, res, next) => {
+        try {
+            const { username } = req.params;
+            const currentUser = req.user;
+
+            req.logger.debug('Inicio de eliminación de administrador', {
+                action: 'delete_admin',
+                requestedBy: currentUser._id,
+                targetUsername: username,
+                ip: req.ip
+            });
+
+            // Verificar que no sea auto-eliminación
+            if (username === currentUser.username) {
+                throw new AppError(
+                    'No puedes eliminarte a ti mismo',
+                    400,
+                    'SELF_DELETION_NOT_ALLOWED',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        userId: currentUser._id,
+                        username: currentUser.username,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Buscar el admin a eliminar por username (case insensitive)
+            const adminToDelete = await User.findOne({
+                username: { $regex: new RegExp(`^${username}$`, 'i') }
+            });
+
+            if (!adminToDelete) {
+                throw new AppError(
+                    'Administrador no encontrado',
+                    404,
+                    'ADMIN_NOT_FOUND',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        username,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que no sea superadmin
+            if (adminToDelete.role === 'superadmin') {
+                throw new AppError(
+                    'No puedes eliminar a un superadministrador',
+                    400,
+                    'SUPERADMIN_DELETION_NOT_ALLOWED',
+                    {
+                        action: 'admin_deletion',
+                        context: 'security',
+                        username,
+                        role: adminToDelete.role,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que sea admin (no egresado)
+            if (adminToDelete.role !== 'admin') {
+                throw new AppError(
+                    'Solo se pueden eliminar administradores',
+                    400,
+                    'INVALID_USER_ROLE',
+                    {
+                        action: 'admin_deletion',
+                        context: 'validation',
+                        username,
+                        role: adminToDelete.role,
+                        requestedBy: currentUser._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Eliminar el admin
+            await User.findOneAndDelete({
+                username: { $regex: new RegExp(`^${username}$`, 'i') }
+            });
+
+            req.logger.info('Administrador eliminado exitosamente', {
+                action: 'admin_deletion_success',
+                username,
+                deletedBy: currentUser._id,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Administrador eliminado correctamente'
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Autentica un usuario y genera tokens JWT
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.emailOrUsername - Email o nombre de usuario
+     * @param {string} req.body.password - Contraseña
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Cookies HTTP-only con tokens JWT
+     *  - JSON con datos básicos del usuario
+     * @throws {AppError} Con errores específicos:
+     *  - 401 si las credenciales son inválidas
+     *  - 403 si la cuenta no está verificada/inactiva
+     *  - 500 si hay error al generar tokens
      */
     login = async (req, res, next) => {
         try {
@@ -477,6 +996,30 @@ export default class AuthController {
                     }
                 );
             }
+
+            // Verificar estado de suspensión
+            const { wasSuspended, isNowActive } = await user.checkSuspensionStatus();
+            if (wasSuspended) {
+                throw new AppError(
+                    'Cuenta suspendida',
+                    403,
+                    'ACCOUNT_SUSPENDED',
+                    {
+                        action: 'login_blocked',
+                        context: 'security',
+                        userId: user._id,
+                        status: {
+                            wasSuspended: true,
+                            isNowActive: false
+                        },
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Actualizar último acceso
+            user.lastLogin = new Date();
+            await user.save();
 
             // Verificar si la cuenta está activa y verificada
             if (!user.isVerified || !user.isActive) {
@@ -561,22 +1104,57 @@ export default class AuthController {
             });
 
             // Responder con éxito
-            res.json({ success: true, message: 'Inicio de sesión exitoso' });
+            res.json({
+                success: true,
+                requestId: req.requestId,
+                message: 'Inicio de sesión exitoso',
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    role: user.role
+                }
+            });
         } catch (error) {
             next(error);
         }
     }
 
-    // Renovar tokens
+    /**
+     * @method
+     * @async
+     * @description Renueva los tokens JWT usando un refresh token válido
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} [req.cookies.refreshToken] - Token de refresco en cookie
+     * @param {string} [req.body.refreshToken] - Token de refresco en body
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Nuevas cookies HTTP-only con tokens actualizados
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si no se proporciona refresh token
+     *  - 401 si el token es inválido o expiró
+     *  - 500 si hay error al renovar tokens
+     */
     refreshToken = async (req, res, next) => {
         try {
-            const refreshTokenCookie = req.cookies.refreshToken || req.body.refreshToken;
+            const refreshTokenCookie = req.cookies?.refreshToken || req.body?.refreshToken || null;
 
             if (!refreshTokenCookie) {
+                // Limpiar cookies si no hay refresh token para evitar problemas
+                const isProduction = process.env.NODE_ENV === 'production';
+                const cookieOptions = {
+                    httpOnly: true,
+                    secure: isProduction,
+                    sameSite: 'lax',
+                    domain: isProduction ? process.env.DOMAIN : undefined,
+                    path: '/'
+                };
+                res.clearCookie('accessToken', cookieOptions);
+                res.clearCookie('refreshToken', cookieOptions);
+
                 throw new AppError('Refresh token requerido', 401, 'REFRESH_TOKEN_REQUIRED', {
                     action: 'login_failed',
                     context: 'security',
-                    userId: storedToken?.user?._id,
                     reason: 'refresh_token_generation_failed',
                     ip: req.ip,
                     userAgent: req.headers['user-agent']
@@ -591,10 +1169,21 @@ export default class AuthController {
             }).populate('user');
 
             if (!storedToken) {
+                // Limpiar cookies si el refresh token es inválido o expirado
+                const isProduction = process.env.NODE_ENV === 'production';
+                const cookieOptions = {
+                    httpOnly: true,
+                    secure: isProduction,
+                    sameSite: 'lax',
+                    domain: isProduction ? process.env.DOMAIN : undefined,
+                    path: '/'
+                };
+                res.clearCookie('accessToken', cookieOptions);
+                res.clearCookie('refreshToken', cookieOptions);
+
                 throw new AppError('Refresh token inválido o expirado', 401, 'INVALID_REFRESH_TOKEN', {
                     action: 'login_failed',
                     context: 'security',
-                    userId: storedToken?.user?._id,
                     reason: 'refresh_token_generation_failed',
                     ip: req.ip,
                     userAgent: req.headers['user-agent']
@@ -634,7 +1223,6 @@ export default class AuthController {
                     {
                         action: 'login_failed',
                         context: 'security',
-                        userId: storedToken?.user?._id,
                         reason: 'refresh_token_generation_failed',
                         ip: req.ip,
                         userAgent: req.headers['user-agent']
@@ -650,7 +1238,6 @@ export default class AuthController {
                     {
                         action: 'login_failed',
                         context: 'security',
-                        userId: storedToken?.user?._id,
                         reason: 'refresh_token_generation_failed',
                         ip: req.ip,
                         userAgent: req.headers['user-agent']
@@ -690,7 +1277,15 @@ export default class AuthController {
     }
 
     /**
-     * Logout
+     * @method
+     * @async
+     * @description Invalida los tokens de sesión y limpia las cookies
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía:
+     *  - Respuesta de éxito después de invalidar tokens
+     * @throws {AppError} Si ocurre un error al invalidar los tokens
      */
     logout = async (req, res, next) => {
         try {
@@ -742,7 +1337,7 @@ export default class AuthController {
             const cookieOptions = {
                 httpOnly: true,
                 secure: isProduction,
-                sameSite: 'none',
+                sameSite: 'lax',
                 domain: isProduction ? process.env.DOMAIN : undefined,
                 path: '/'
             };
@@ -767,7 +1362,40 @@ export default class AuthController {
     }
 
     /**
-     * Solicitud de restablecimiento de contraseña
+     * @method
+     * @async
+     * @description Maneja la solicitud de restablecimiento de contraseña
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, siempre envía éxito (por seguridad)
+     * @throws {AppError} Con errores específicos:
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
+     */
+    checkSession = (req, res) => {
+        res.json({
+            success: true,
+            requestId: req.requestId,
+            message: 'Sesión válida',
+            user: {
+                id: req.user.id,
+                username: req.user.username,
+                role: req.user.role
+            }
+        });
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Maneja la solicitud de restablecimiento de contraseña
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.emailOrUsername - Email o nombre de usuario
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, siempre envía éxito (por seguridad)
+     * @throws {AppError} Con errores específicos:
+     *  - 429 si se excede el límite de intentos (3 cada 24 horas)
      */
     forgotPassword = async (req, res, next) => {
         try {
@@ -870,7 +1498,18 @@ export default class AuthController {
     }
 
     /**
-     * Procesar restablecimiento de contraseña
+     * @method
+     * @async
+     * @description Restablece la contraseña usando un token válido
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.body.token - Token de restablecimiento
+     * @param {string} req.body.newPassword - Nueva contraseña
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     *  - 400 si la nueva contraseña no cumple los requisitos
      */
     resetPassword = async (req, res, next) => {
         try {
@@ -941,6 +1580,213 @@ export default class AuthController {
                 stack: error.stack,
                 body: req.body
             });
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Cambia el email del usuario autenticado
+     * @param {Object} req - Objeto de petición Express
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 401 si la contraseña actual es incorrecta
+     *  - 409 si el nuevo email ya está en uso
+     *  - 500 si falla el envío del email de verificación
+     */
+    changeEmail = async (req, res, next) => {
+        try {
+            const { newEmail, currentPassword } = req.body;
+            const user = req.user;
+
+            req.logger.debug('Inicio de cambio de email', {
+                userId: user._id,
+                newEmail,
+                ip: req.ip
+            });
+
+            // Buscar contraseña actual
+            const userPassword = await User.findById(user.id, 'password');
+
+            // Verificar que la contraseña actual sea correcta
+            const isMatch = await bcrypt.compare(currentPassword, userPassword.password);
+            if (!isMatch) {
+                throw new AppError(
+                    'Contraseña actual incorrecta',
+                    401,
+                    'INVALID_PASSWORD',
+                    {
+                        action: 'change_email_attempt',
+                        context: 'security',
+                        userId: user._id,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Verificar que el nuevo email no esté en uso
+            const emailExists = await User.findOne({ email: newEmail });
+            if (emailExists) {
+                throw new AppError(
+                    'El nuevo email ya está en uso',
+                    409,
+                    'EMAIL_ALREADY_EXISTS',
+                    {
+                        action: 'change_email_conflict',
+                        context: 'validation',
+                        userId: user._id,
+                        newEmail,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            // Generar token de verificación para el nuevo email
+            const verificationToken = this.emailService.generateVerificationToken();
+            const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+            // Guardar el nuevo email pendiente de verificación
+            user.pendingEmail = newEmail;
+            user.emailVerificationToken = verificationToken;
+            user.emailVerificationTokenExpires = verificationTokenExpires;
+            await user.save();
+
+            // Enviar email de verificación al nuevo correo
+            const emailResult = await this.emailService.sendEmailChangeVerification(
+                newEmail,
+                verificationToken
+            );
+
+            if (!emailResult.success) {
+                throw new AppError(
+                    'No se pudo enviar el email de verificación. Por favor intenta nuevamente.',
+                    500,
+                    'EMAIL_SEND_FAILURE',
+                    {
+                        action: 'change_email_send_failed',
+                        context: 'email_service',
+                        userId: user._id,
+                        newEmail,
+                        error: emailResult.error,
+                        isCritical: true
+                    }
+                );
+            }
+
+            req.logger.info('Solicitud de cambio de email exitosa', {
+                userId: user._id,
+                oldEmail: user.email,
+                newEmail,
+                ip: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: 'Se ha enviado un enlace de verificación a tu nuevo correo. Por favor verifícalo para completar el cambio.'
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @method
+     * @async
+     * @description Verifica el cambio de email mediante token
+     * @param {Object} req - Objeto de petición Express
+     * @param {string} req.validatedQuery.token - Token de verificación
+     * @param {Object} res - Objeto de respuesta Express
+     * @param {Function} next - Función para pasar al siguiente middleware
+     * @returns {Promise<void>} No retorna directamente, envía respuesta JSON
+     * @throws {AppError} Con errores específicos:
+     *  - 400 si el token es inválido o expiró
+     *  - 404 si no se encuentra usuario con ese token
+     */
+    verifyEmailChange = async (req, res, next) => {
+        try {
+            const { token } = req.query;
+
+            req.logger.debug('Verificación de cambio de email', {
+                tokenPresent: !!token,
+                ip: req.ip
+            });
+
+            // Buscar usuario con token válido y email pendiente
+            const user = await User.findOne({
+                emailVerificationToken: token,
+                emailVerificationTokenExpires: { $gt: new Date() },
+                pendingEmail: { $exists: true, $ne: null }
+            }).select('+emailVerificationToken +emailVerificationTokenExpires +pendingEmail');
+
+            if (!user) {
+                throw new AppError(
+                    'Error al verificar el cambio de email',
+                    400,
+                    'INVALID_EMAIL_CHANGE_TOKEN',
+                    {
+                        action: 'verify_email_change',
+                        context: 'security',
+                        tokenPresent: !!token,
+                        ip: req.ip
+                    }
+                );
+            }
+
+            req.logger.debug('Usuario encontrado', {
+                userId: user._id,
+                oldEmail: user.email,
+                newEmail: user.pendingEmail,
+                ip: req.ip
+            });
+
+            // Actualizar el email y limpiar campos temporales
+            const oldEmail = user.email;
+            req.logger.debug('Email cambiado', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.pendingEmail,
+                ip: req.ip
+            });
+            user.email = user.pendingEmail;
+            user.pendingEmail = undefined;
+            user.emailVerificationToken = undefined;
+
+            user.emailVerificationTokenExpires = undefined;
+            req.logger.debug('datos de user', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.email,
+                ip: req.ip
+            });
+            req.logger.debug('email', {
+                email: user.email
+            });
+            await user.save();
+
+            req.logger.info('Email cambiado exitosamente', {
+                userId: user._id,
+                oldEmail,
+                newEmail: user.email,
+                ip: req.ip
+            });
+
+            // Enviar notificación al antiguo email
+            await this.emailService.sendEmailChangeNotification(oldEmail);
+
+            res.json({
+                success: true,
+                message: 'Email actualizado correctamente',
+                data: {
+                    id: user._id,
+                    newEmail: user.email
+                }
+            });
+
+        } catch (error) {
             next(error);
         }
     }
